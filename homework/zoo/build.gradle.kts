@@ -27,17 +27,22 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+jacoco {
+    toolVersion = '0.8.12'
+}
+
 test {
     useJUnitPlatform()
-    finalizedBy(jacocoTestReport)
+    finalizedBy jacocoTestReport
 }
 
 jacocoTestReport {
-    dependsOn(test)
-    def excludes = ['com/example/zoo/ZooApplication*']
-    classDirectories.setFrom(files(classDirectories.files.collect {
-        fileTree(dir: it, exclude: excludes)
-    }))
+    dependsOn test
+            reports {
+                html.required = true   // HTML-отчёт в build/reports/jacoco/test/html/index.html
+                xml.required  = false
+                csv.required  = false
+            }
 }
 
 bootRun {
