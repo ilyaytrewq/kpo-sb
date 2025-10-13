@@ -1,5 +1,5 @@
 # ZooApplication — консольный зоопарк (Spring Boot + Gradle)
-
+# Тихонов Илья
 
 ### 1) Запуск из терминала
 ```bash
