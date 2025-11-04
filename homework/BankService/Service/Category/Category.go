@@ -4,9 +4,10 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
+
 )
 
-type CategoryID uuid.UUID
 type CategoryType int
 
 const (
@@ -26,7 +27,7 @@ func (ct CategoryType) String() string {
 }
 
 type ICategory interface {
-	ID() CategoryID
+	service.ICommonObject
 	Name() string
 	Type() CategoryType
 
@@ -34,7 +35,7 @@ type ICategory interface {
 }
 
 type Category struct {
-	id    CategoryID
+	id    service.ObjectID
 	name  string
 	ctype CategoryType
 }
@@ -47,13 +48,13 @@ func NewCategory(name string, ctype CategoryType) (*Category, error) {
 		return nil, errors.New("invalid category type")
 	}
 	return &Category{
-		id:    CategoryID(uuid.New()),
+		id:    service.ObjectID(uuid.New()),
 		name:  name,
 		ctype: ctype,
 	}, nil
 }
 
-func NewCopyCategory(id CategoryID, name string, ctype CategoryType) (*Category, error) {
+func NewCopyCategory(id service.ObjectID, name string, ctype CategoryType) (*Category, error) {
 	if name == "" {
 		return nil, errors.New("category name cannot be empty")
 	}
@@ -67,7 +68,7 @@ func NewCopyCategory(id CategoryID, name string, ctype CategoryType) (*Category,
 	}, nil
 }
 
-func (c *Category) ID() CategoryID       { return c.id }
+func (c *Category) ID() service.ObjectID { return c.id }
 func (c *Category) Name() string         { return c.name }
 func (c *Category) Type() CategoryType   { return c.ctype }
 func (c *Category) SetName(newName string) { c.name = newName }

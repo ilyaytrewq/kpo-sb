@@ -4,11 +4,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	bankaccount "github.com/ilyaytrewq/kpo-sb/homework/BankService/BankAccount"
-	category "github.com/ilyaytrewq/kpo-sb/homework/BankService/Category"
+	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
+
 )
 
-type OperationID uuid.UUID
 type OperationType int
 
 const (
@@ -17,31 +16,31 @@ const (
 )
 
 type IOperation interface {
-	ID() OperationID
+	service.ICommonObject
 	Type() OperationType
-	BankAccountID() bankaccount.BankAccountID
+	BankAccountID() service.ObjectID
 	Amount() float64
 	Date() time.Time
 	Description() string
-	CategoryID() category.CategoryID
+	CategoryID() service.ObjectID
 }
 
 type Operation struct {
-	id            OperationID
+	id            service.ObjectID
 	opType        OperationType
-	bankAccountID bankaccount.BankAccountID
+	bankAccountID service.ObjectID
 	amount        float64
 	date          time.Time
 	description   string
-	categoryID    category.CategoryID
+	categoryID    service.ObjectID
 }
 
 func NewOperation(
 	opType OperationType,
-	bankAccountID bankaccount.BankAccountID,
+	bankAccountID service.ObjectID,
 	amount float64,
 	date time.Time,
-	categoryID category.CategoryID,
+	categoryID service.ObjectID,
 	description ...string,
 ) (*Operation, error) {
 	desc := ""
@@ -50,7 +49,7 @@ func NewOperation(
 	}
 
 	return &Operation{
-		id:            OperationID(uuid.New()),
+		id:            service.ObjectID(uuid.New()),
 		opType:        opType,
 		bankAccountID: bankAccountID,
 		amount:        amount,
@@ -61,12 +60,12 @@ func NewOperation(
 }
 
 func NewCopyOperation(
-	id OperationID,
+	id service.ObjectID,
 	opType OperationType,
-	bankAccountID bankaccount.BankAccountID,
+	bankAccountID service.ObjectID,
 	amount float64,
 	date time.Time,
-	categoryID category.CategoryID,
+	categoryID service.ObjectID,
 	description ...string,
 ) (*Operation, error) {
 	desc := ""
@@ -85,10 +84,10 @@ func NewCopyOperation(
 	}, nil
 }
 
-func (o *Operation) ID() OperationID                          { return o.id }
+func (o *Operation) ID() service.ObjectID                          { return o.id }
 func (o *Operation) Type() OperationType                      { return o.opType }
-func (o *Operation) BankAccountID() bankaccount.BankAccountID { return o.bankAccountID }
+func (o *Operation) BankAccountID() service.ObjectID         { return o.bankAccountID }
 func (o *Operation) Amount() float64                          { return o.amount }
 func (o *Operation) Date() time.Time                          { return o.date }
 func (o *Operation) Description() string                      { return o.description }
-func (o *Operation) CategoryID() category.CategoryID          { return o.categoryID }
+func (o *Operation) CategoryID() service.ObjectID            { return o.categoryID }

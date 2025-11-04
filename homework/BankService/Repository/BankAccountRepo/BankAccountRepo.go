@@ -4,19 +4,27 @@ import (
 	"context"
 	"errors"
 
-	bankaccount "github.com/ilyaytrewq/kpo-sb/homework/BankService/BankAccount"
+	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
+	bankaccount "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service/BankAccount"
 )
 
-type IBankAccountRepo interface {
-    ByID(ctx context.Context, id bankaccount.BankAccountID) (*bankaccount.IBankAccount, error)
-    Save(ctx context.Context, acc *bankaccount.IBankAccount) error
-}
-
 type BankAccountRepo struct {
-	repo map[bankaccount.BankAccountID] *bankaccount.BankAccount
+	repo map[service.ObjectID] *bankaccount.BankAccount
 }
 
-func (r *BankAccountRepo) ByID(ctx context.Context, id bankaccount.BankAccountID) (*bankaccount.IBankAccount, error) {
+func NewBankAccount() *BankAccountRepo {
+	return &BankAccountRepo{make(map[service.ObjectID]*bankaccount.BankAccount)}
+}
+
+func NewCopyBankAccount(repo map[service.ObjectID] *bankaccount.BankAccount) *BankAccountRepo {
+	newRepo := make(map[service.ObjectID]*bankaccount.BankAccount)
+	for k, v := range repo {
+		newRepo[k] = v
+	}
+	return &BankAccountRepo{repo: newRepo}
+}
+
+func (r *BankAccountRepo) ByID(ctx context.Context, id service.ObjectID) (*bankaccount.IBankAccount, error) {
 	acc, ok := r.repo[id]
 	if !ok {
 		return nil, errors.New("account not found")
@@ -35,4 +43,13 @@ func (r *BankAccountRepo) Save(ctx context.Context, acc *bankaccount.IBankAccoun
 	}
 	r.repo[(*acc).ID()] = i
 	return nil
+}
+
+func (r *BankAccountRepo) All(ctx context.Context) ([]*bankaccount.IBankAccount, error) {
+	accs := make([]*bankaccount.IBankAccount, 0, len(r.repo))
+	for _, acc := range r.repo {
+		var i bankaccount.IBankAccount = acc
+		accs = append(accs, &i)
+	}
+	return accs, nil
 }

@@ -4,12 +4,11 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
 )
 
-type BankAccountID uuid.UUID
-
 type IBankAccount interface {
-	ID() BankAccountID
+	service.ICommonObject
 	Name() string
 	Balance() float64
 
@@ -18,7 +17,7 @@ type IBankAccount interface {
 }
 
 type BankAccount struct {
-	id      BankAccountID
+	id      service.ObjectID
 	name    string
 	balance float64
 }
@@ -31,13 +30,13 @@ func NewBankAccount(name string, balance float64) (*BankAccount, error) {
 		return nil, errors.New("account name cannot be empty")
 	}
 	return &BankAccount{
-		id:      BankAccountID(uuid.New()),
+		id:      service.ObjectID(uuid.New()),
 		name:    name,
 		balance: balance,
 	}, nil
 }
 
-func NewCopyBankAccount(id BankAccountID, name string, balance float64) (*BankAccount, error) {
+func NewCopyBankAccount(id service.ObjectID, name string, balance float64) (*BankAccount, error) {
 	if balance < 0 {
 		return nil, errors.New("balance should be >= 0")
 	}
@@ -51,7 +50,7 @@ func NewCopyBankAccount(id BankAccountID, name string, balance float64) (*BankAc
 	}, nil
 }
 
-func (acc *BankAccount) ID() BankAccountID     { return acc.id }
+func (acc *BankAccount) ID() service.ObjectID { return acc.id }
 func (acc *BankAccount) Name() string          { return acc.name }
 func (acc *BankAccount) Balance() float64      { return acc.balance }
 func (acc *BankAccount) SetName(newName string) { acc.name = newName }
