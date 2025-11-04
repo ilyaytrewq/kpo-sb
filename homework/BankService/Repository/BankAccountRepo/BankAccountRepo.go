@@ -1,4 +1,4 @@
-package repository
+package bankaccountrepo
 
 import (
 	"context"
