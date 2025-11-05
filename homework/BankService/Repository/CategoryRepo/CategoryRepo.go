@@ -12,11 +12,11 @@ type CategoryRepo struct {
 	repo map[service.ObjectID]*category.Category
 }
 
-func NewCategory() *CategoryRepo {
+func NewCategoryRepo() *CategoryRepo {
 	return &CategoryRepo{make(map[service.ObjectID]*category.Category)}
 }
 
-func NewCopyCategory(repo map[service.ObjectID]*category.Category) *CategoryRepo {
+func NewCopyCategoryRepo(repo map[service.ObjectID]*category.Category) *CategoryRepo {
 	newRepo := make(map[service.ObjectID]*category.Category)
 	for k, v := range repo {
 		newRepo[k] = v
@@ -24,32 +24,30 @@ func NewCopyCategory(repo map[service.ObjectID]*category.Category) *CategoryRepo
 	return &CategoryRepo{repo: newRepo}
 }
 
-func (r *CategoryRepo) ByID(ctx context.Context, id service.ObjectID) (*category.ICategory, error) {
+func (r *CategoryRepo) ByID(ctx context.Context, id service.ObjectID) (service.ICommonObject, error) {
 	cat, ok := r.repo[id]
 	if !ok {
 		return nil, errors.New("category not found")
 	}
-	var i category.ICategory = cat
-	return &i, nil
+	return cat, nil
 }
 
-func (r *CategoryRepo) Save(ctx context.Context, cat *category.ICategory) error {
-	if _, ok := r.repo[(*cat).ID()]; ok {
+func (r *CategoryRepo) Save(ctx context.Context, cat service.ICommonObject) error {
+	if _, ok := r.repo[cat.ID()]; ok {
 		return errors.New("category already saved")
 	}
-	i, ok := (*cat).(*category.Category)
+	i, ok := cat.(*category.Category)
 	if !ok {
 		return errors.New("invalid category type")
 	}
-	r.repo[(*cat).ID()] = i
+	r.repo[cat.ID()] = i
 	return nil
 }
 
-func (r *CategoryRepo) All(ctx context.Context) ([]*category.ICategory, error) {
-	cats := make([]*category.ICategory, 0, len(r.repo))
+func (r *CategoryRepo) All(ctx context.Context) ([]service.ICommonObject, error) {
+	cats := make([]service.ICommonObject, 0, len(r.repo))
 	for _, cat := range r.repo {
-		var i category.ICategory = cat
-		cats = append(cats, &i)
+		cats = append(cats, cat)
 	}
 	return cats, nil
 }

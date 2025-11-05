@@ -12,11 +12,11 @@ type BankAccountRepo struct {
 	repo map[service.ObjectID] *bankaccount.BankAccount
 }
 
-func NewBankAccount() *BankAccountRepo {
+func NewBankAccountRepo() *BankAccountRepo {
 	return &BankAccountRepo{make(map[service.ObjectID]*bankaccount.BankAccount)}
 }
 
-func NewCopyBankAccount(repo map[service.ObjectID] *bankaccount.BankAccount) *BankAccountRepo {
+func NewCopyBankAccountRepo(repo map[service.ObjectID] *bankaccount.BankAccount) *BankAccountRepo {
 	newRepo := make(map[service.ObjectID]*bankaccount.BankAccount)
 	for k, v := range repo {
 		newRepo[k] = v
@@ -24,32 +24,30 @@ func NewCopyBankAccount(repo map[service.ObjectID] *bankaccount.BankAccount) *Ba
 	return &BankAccountRepo{repo: newRepo}
 }
 
-func (r *BankAccountRepo) ByID(ctx context.Context, id service.ObjectID) (*bankaccount.IBankAccount, error) {
+func (r *BankAccountRepo) ByID(ctx context.Context, id service.ObjectID) (service.ICommonObject, error) {
 	acc, ok := r.repo[id]
 	if !ok {
 		return nil, errors.New("account not found")
 	}
-	var i bankaccount.IBankAccount = acc
-	return &i, nil
+	return acc, nil
 }
 
-func (r *BankAccountRepo) Save(ctx context.Context, acc *bankaccount.IBankAccount) error {
-	if _, ok := r.repo[(*acc).ID()]; ok {
+func (r *BankAccountRepo) Save(ctx context.Context, acc service.ICommonObject) error {
+	if _, ok := r.repo[acc.ID()]; ok {
 		return errors.New("account already saved")
 	}
-	i, ok := (*acc).(*bankaccount.BankAccount)
+	i, ok := acc.(*bankaccount.BankAccount)
 	if !ok {
 		return errors.New("invalid account type")
 	}
-	r.repo[(*acc).ID()] = i
+	r.repo[acc.ID()] = i
 	return nil
 }
 
-func (r *BankAccountRepo) All(ctx context.Context) ([]*bankaccount.IBankAccount, error) {
-	accs := make([]*bankaccount.IBankAccount, 0, len(r.repo))
+func (r *BankAccountRepo) All(ctx context.Context) ([]service.ICommonObject, error) {
+	accs := make([]service.ICommonObject, 0, len(r.repo))
 	for _, acc := range r.repo {
-		var i bankaccount.IBankAccount = acc
-		accs = append(accs, &i)
+		accs = append(accs, acc)
 	}
 	return accs, nil
 }

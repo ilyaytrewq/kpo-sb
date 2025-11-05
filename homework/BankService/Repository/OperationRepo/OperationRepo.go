@@ -12,18 +12,18 @@ import (
 
 type IOperationRepo interface {
 	repository.ICommonRepo
-	SliceByAccountAndPeriod(ctx context.Context, id service.ObjectID, from time.Time, to time.Time) ([]*operation.IOperation, error)
+	SliceByAccountAndPeriod(ctx context.Context, id service.ObjectID, from time.Time, to time.Time) ([]*service.ICommonObject, error)
 }
 
 type OperationRepo struct {
 	repo map[service.ObjectID]*operation.Operation
 }
 
-func NewOperation() *OperationRepo {
+func NewOperationRepo() *OperationRepo {
 	return &OperationRepo{make(map[service.ObjectID]*operation.Operation)}
 }
 
-func NewCopyOperation(repo map[service.ObjectID]*operation.Operation) *OperationRepo {
+func NewCopyOperationRepo(repo map[service.ObjectID]*operation.Operation) *OperationRepo {
 	newRepo := make(map[service.ObjectID]*operation.Operation)
 	for k, v := range repo {
 		newRepo[k] = v
@@ -31,16 +31,15 @@ func NewCopyOperation(repo map[service.ObjectID]*operation.Operation) *Operation
 	return &OperationRepo{repo: newRepo}
 }
 
-func (r *OperationRepo) ByID(ctx context.Context, id service.ObjectID) (*operation.IOperation, error) {
+func (r *OperationRepo) ByID(ctx context.Context, id service.ObjectID) (service.ICommonObject, error) {
 	op, ok := r.repo[id]
 	if !ok {
 		return nil, errors.New("operation not found")
 	}
-	var i operation.IOperation = op
-	return &i, nil
+	return op, nil
 }
 
-func (r *OperationRepo) Save(ctx context.Context, op operation.IOperation) error {
+func (r *OperationRepo) Save(ctx context.Context, op service.ICommonObject) error {
 	if _, ok := r.repo[op.ID()]; ok {
 		return errors.New("operation already saved")
 	}
@@ -52,22 +51,20 @@ func (r *OperationRepo) Save(ctx context.Context, op operation.IOperation) error
 	return nil
 }
 
-func (r *OperationRepo) All(ctx context.Context) ([]*operation.IOperation, error) {
-	ops := make([]*operation.IOperation, 0, len(r.repo))
+func (r *OperationRepo) All(ctx context.Context) ([]service.ICommonObject, error) {
+	ops := make([]service.ICommonObject, 0, len(r.repo))
 	for _, op := range r.repo {
-		var i operation.IOperation = op
-		ops = append(ops, &i)
+		ops = append(ops, op)
 	}
 	return ops, nil
 }
 
-func (r *OperationRepo) SliceByAccountAndPeriod(ctx context.Context, _ service.ObjectID, from time.Time, to time.Time) ([]*operation.IOperation, error) {
-	ops := make([]*operation.IOperation, 0)
+func (r *OperationRepo) SliceByAccountAndPeriod(ctx context.Context, _ service.ObjectID, from time.Time, to time.Time) ([]service.ICommonObject, error) {
+	ops := make([]service.ICommonObject, 0)
 	for _, op := range r.repo {
 		d := op.Date()
 		if (d.Equal(from) || d.After(from)) && (d.Equal(to) || d.Before(to)) {
-			var i operation.IOperation = op
-			ops = append(ops, &i)
+			ops = append(ops, op)
 		}
 	}
 	return ops, nil

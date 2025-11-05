@@ -16,7 +16,7 @@ func main() {
 		fmt.Println("failed to create account")
 		return
 	}
-	bankrepo := bankaccountrepo.NewBankAccount()
+	bankrepo := bankaccountrepo.NewBankAccountRepo()
 	var i bankaccount.IBankAccount = acc
 	bankrepo.Save(context.Background(), &i)
 	all, err := bankrepo.All(context.Background())
