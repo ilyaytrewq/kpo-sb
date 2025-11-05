@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	importer "github.com/ilyaytrewq/kpo-sb/homework/BankService/DataIO/Importer"
 	categoryrepo "github.com/ilyaytrewq/kpo-sb/homework/BankService/Repository/CategoryRepo"
 	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
 	category "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service/Category"
-	"github.com/google/uuid"
 )
 
 type categoryJSON struct {

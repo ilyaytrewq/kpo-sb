@@ -1,57 +1,61 @@
 package csvimporter
 
 import (
-	"context"
 	"encoding/csv"
-	"os"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
-	repository "github.com/ilyaytrewq/kpo-sb/homework/BankService/Repository"
+	importer "github.com/ilyaytrewq/kpo-sb/homework/BankService/DataIO/Importer"
 	categoryrepo "github.com/ilyaytrewq/kpo-sb/homework/BankService/Repository/CategoryRepo"
 	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
 	category "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service/Category"
 )
 
-type CSVCategoryImporter struct {
-	repo     *categoryrepo.CategoryRepo
-	filepath string
-}
+type csvCategoryParser struct{}
 
-func NewCSVCategoryImporter(filepath string) *CSVCategoryImporter {
-	return &CSVCategoryImporter{repo: categoryrepo.NewCategoryRepo(), filepath: filepath}
-}
-
-func (c *CSVCategoryImporter) Read() error {
-	data, err := os.ReadFile(c.filepath)
-	if err != nil {
-		return err
-	}
+func (p *csvCategoryParser) Parse(data []byte) ([]service.ICommonObject, error) {
 	reader := csv.NewReader(strings.NewReader(string(data)))
 	records, err := reader.ReadAll()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	var (
+		result []service.ICommonObject
+		errs   []string
+	)
 	for i, rec := range records {
-		if i == 0 || len(rec) < 3 {
+		if i == 0 { // header
+			continue
+		}
+		if len(rec) < 3 {
+			errs = append(errs, fmt.Sprintf("row %d: expected 3 columns, got %d", i, len(rec)))
 			continue
 		}
 		id, err := uuid.Parse(rec[0])
 		if err != nil {
+			errs = append(errs, fmt.Sprintf("row %d: invalid id '%s'", i, rec[0]))
 			continue
 		}
-		catType, err := strconv.Atoi(rec[2])
+		t, err := strconv.Atoi(rec[2])
 		if err != nil {
+			errs = append(errs, fmt.Sprintf("row %d: invalid type '%s'", i, rec[2]))
 			continue
 		}
-		obj, err := category.NewCopyCategory(service.ObjectID(id), rec[1], category.CategoryType(catType))
+		obj, err := category.NewCopyCategory(service.ObjectID(id), rec[1], category.CategoryType(t))
 		if err != nil {
+			errs = append(errs, fmt.Sprintf("row %d: %v", i, err))
 			continue
 		}
-		_ = c.repo.Save(context.Background(), obj)
+		result = append(result, obj)
 	}
-	return nil
+	if len(errs) > 0 {
+		return result, fmt.Errorf("parse finished with %d errors: %s", len(errs), strings.Join(errs, "; "))
+	}
+	return result, nil
 }
 
-func (c *CSVCategoryImporter) Data() repository.ICommonRepo { return c.repo }
+func NewCSVCategoryImporter(filepath string) *importer.BaseImporter {
+	return importer.NewImporter(filepath, categoryrepo.NewCategoryRepo(), &csvCategoryParser{})
+}

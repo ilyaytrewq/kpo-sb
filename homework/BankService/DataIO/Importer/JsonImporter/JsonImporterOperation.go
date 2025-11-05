@@ -2,15 +2,15 @@ package jsonimporter
 
 import (
 	"encoding/json"
-	"time"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	importer "github.com/ilyaytrewq/kpo-sb/homework/BankService/DataIO/Importer"
 	operationrepo "github.com/ilyaytrewq/kpo-sb/homework/BankService/Repository/OperationRepo"
 	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
 	operation "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service/Operation"
-	"github.com/google/uuid"
 )
 
 type operationJSON struct {

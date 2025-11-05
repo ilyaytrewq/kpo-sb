@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	importer "github.com/ilyaytrewq/kpo-sb/homework/BankService/DataIO/Importer"
 	bankaccountrepo "github.com/ilyaytrewq/kpo-sb/homework/BankService/Repository/BankAccountRepo"
 	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
 	bankaccount "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service/BankAccount"
-	"github.com/google/uuid"
 )
 
 type bankAccountJSON struct {
