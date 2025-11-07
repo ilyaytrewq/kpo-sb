@@ -12,7 +12,7 @@ import (
 
 type IOperationRepo interface {
 	repository.ICommonRepo
-	SliceByAccountAndPeriod(ctx context.Context, id service.ObjectID, from time.Time, to time.Time) ([]*service.ICommonObject, error)
+	SliceByAccountAndPeriod(ctx context.Context, id service.ObjectID, from time.Time, to time.Time) ([]service.ICommonObject, error)
 }
 
 type OperationRepo struct {
@@ -59,13 +59,21 @@ func (r *OperationRepo) All(ctx context.Context) ([]service.ICommonObject, error
 	return ops, nil
 }
 
-func (r *OperationRepo) SliceByAccountAndPeriod(ctx context.Context, _ service.ObjectID, from time.Time, to time.Time) ([]service.ICommonObject, error) {
+func (r *OperationRepo) SliceByAccountAndPeriod(ctx context.Context, id service.ObjectID, from time.Time, to time.Time) ([]service.ICommonObject, error) {
 	ops := make([]service.ICommonObject, 0)
 	for _, op := range r.repo {
 		d := op.Date()
-		if (d.Equal(from) || d.After(from)) && (d.Equal(to) || d.Before(to)) {
+		if op.BankAccountID() == id && (d.Equal(from) || d.After(from)) && (d.Equal(to) || d.Before(to)) {
 			ops = append(ops, op)
 		}
 	}
 	return ops, nil
+}
+
+func (r *OperationRepo) Delete(ctx context.Context, id service.ObjectID) error {
+	if _, ok := r.repo[id]; !ok {
+		return errors.New("operation not found")
+	}
+	delete(r.repo, id)
+	return nil
 }

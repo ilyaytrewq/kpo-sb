@@ -51,3 +51,11 @@ func (r *CategoryRepo) All(ctx context.Context) ([]service.ICommonObject, error)
 	}
 	return cats, nil
 }
+
+func (r *CategoryRepo) Delete(ctx context.Context, id service.ObjectID) error {
+	if _, ok := r.repo[id]; !ok {
+		return errors.New("category not found")
+	}
+	delete(r.repo, id)
+	return nil
+}

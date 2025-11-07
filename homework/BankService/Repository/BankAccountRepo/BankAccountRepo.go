@@ -9,14 +9,14 @@ import (
 )
 
 type BankAccountRepo struct {
-	repo map[service.ObjectID] *bankaccount.BankAccount
+	repo map[service.ObjectID]*bankaccount.BankAccount
 }
 
 func NewBankAccountRepo() *BankAccountRepo {
 	return &BankAccountRepo{make(map[service.ObjectID]*bankaccount.BankAccount)}
 }
 
-func NewCopyBankAccountRepo(repo map[service.ObjectID] *bankaccount.BankAccount) *BankAccountRepo {
+func NewCopyBankAccountRepo(repo map[service.ObjectID]*bankaccount.BankAccount) *BankAccountRepo {
 	newRepo := make(map[service.ObjectID]*bankaccount.BankAccount)
 	for k, v := range repo {
 		newRepo[k] = v
@@ -50,4 +50,12 @@ func (r *BankAccountRepo) All(ctx context.Context) ([]service.ICommonObject, err
 		accs = append(accs, acc)
 	}
 	return accs, nil
+}
+
+func (r *BankAccountRepo) Delete(ctx context.Context, id service.ObjectID) error {
+	if _, ok := r.repo[id]; !ok {
+		return errors.New("account not found")
+	}
+	delete(r.repo, id)
+	return nil
 }
