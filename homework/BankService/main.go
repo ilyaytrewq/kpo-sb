@@ -393,7 +393,6 @@ func main() {
 			if err := timer.NewTimerDecorator(cmd).Execute(); err != nil {
 				fmt.Println("error:", err)
 			}
-			// 16) Get account by ID
 		case "16":
 			id := readUUID(in, "Account ID (uuid): ")
 			a, err := bankF.GetAccount(service.ObjectID(id))
@@ -404,7 +403,6 @@ func main() {
 			fmt.Printf("ID=%s | name=%s | balance=%.2f\n",
 				uuid.UUID(a.ID()).String(), a.Name(), a.Balance())
 
-		// 17) Update account name
 		case "17":
 			id := readUUID(in, "Account ID (uuid): ")
 			newName := readString(in, "New name: ")
@@ -414,7 +412,6 @@ func main() {
 				fmt.Println("ok")
 			}
 
-		// 18) Update account balance
 		case "18":
 			id := readUUID(in, "Account ID (uuid): ")
 			newBal := readFloat(in, "New balance: ")
@@ -424,7 +421,6 @@ func main() {
 				fmt.Println("ok")
 			}
 
-		// 19) Get category by ID
 		case "19":
 			id := readUUID(in, "Category ID (uuid): ")
 			c, err := catF.GetCategory(service.ObjectID(id))
@@ -435,7 +431,6 @@ func main() {
 			fmt.Printf("ID=%s | name=%s | type=%d\n",
 				uuid.UUID(c.ID()).String(), c.Name(), int(c.Type()))
 
-		// 20) Update category name
 		case "20":
 			id := readUUID(in, "Category ID (uuid): ")
 			newName := readString(in, "New name: ")
@@ -445,7 +440,6 @@ func main() {
 				fmt.Println("ok")
 			}
 
-		// 21) Delete category
 		case "21":
 			id := readUUID(in, "Category ID (uuid): ")
 			if err := catF.DeleteCategory(service.ObjectID(id)); err != nil {
@@ -472,7 +466,6 @@ func main() {
 				o.Description(),
 			)
 
-		
 		case "23":
 			id := readUUID(in, "Operation ID (uuid): ")
 			if err := opF.DeleteOperation(service.ObjectID(id)); err != nil {
