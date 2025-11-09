@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bankservice
+      POSTGRES_USER: bankservice
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bankservice -d bankservice -h 127.0.0.1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: bankservice
+      DB_USER: bankservice
+      DB_PASSWORD: password
+    stdin_open: true
+    tty: true
+    restart: "no"
+    volumes:
+      - ./files:/app/files
+    working_dir: /app/files
+    command: ["/app/bankservice"] 
+
+volumes:
+  db-data:
+  files:

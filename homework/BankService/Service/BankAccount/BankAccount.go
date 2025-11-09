@@ -50,9 +50,9 @@ func NewCopyBankAccount(id service.ObjectID, name string, balance float64) (*Ban
 	}, nil
 }
 
-func (acc *BankAccount) ID() service.ObjectID { return acc.id }
-func (acc *BankAccount) Name() string          { return acc.name }
-func (acc *BankAccount) Balance() float64      { return acc.balance }
+func (acc *BankAccount) ID() service.ObjectID   { return acc.id }
+func (acc *BankAccount) Name() string           { return acc.name }
+func (acc *BankAccount) Balance() float64       { return acc.balance }
 func (acc *BankAccount) SetName(newName string) { acc.name = newName }
 
 func (acc *BankAccount) SetBalance(newBalance float64) error {

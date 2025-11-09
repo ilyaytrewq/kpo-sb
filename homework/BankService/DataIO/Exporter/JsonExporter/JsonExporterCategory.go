@@ -34,7 +34,7 @@ func (f *jsonCategoryFormatter) FormatData(data interface{}) ([]byte, error) {
 			Type: int(c.Type()),
 		})
 	}
-	return json.Marshal(res)
+	return json.MarshalIndent(res, "", "\t")
 }
 
 func NewJSONCategoryExporter(filepath string) *exporter.BaseExporter {

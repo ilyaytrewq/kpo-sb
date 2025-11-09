@@ -35,7 +35,7 @@ func (f *jsonBankAccountFormatter) FormatData(data interface{}) ([]byte, error) 
 			Balance: acc.Balance(),
 		})
 	}
-	return json.Marshal(res)
+	return json.MarshalIndent(res, "", "\t")
 }
 
 func NewJSONBankAccountExporter(filepath string) *exporter.BaseExporter {

@@ -33,7 +33,6 @@ func (p *CachedRepo) ByID(ctx context.Context, id service.ObjectID) (service.ICo
 	if ok {
 		return obj, nil
 	}
-	// Optional read-through
 	o, err := p.db.ByID(ctx, id)
 	if err != nil {
 		return nil, err

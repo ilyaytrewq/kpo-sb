@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	repository "github.com/ilyaytrewq/kpo-sb/homework/BankService/Repository"
 	operationrepo "github.com/ilyaytrewq/kpo-sb/homework/BankService/Repository/OperationRepo"
 	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
 	category "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service/Category"
@@ -11,11 +12,15 @@ import (
 )
 
 type AnalyticsFacade struct {
-	ops *operationrepo.OperationRepo
+	ops operationrepo.IOperationRepo
 }
 
-func NewAnalyticsFacade(ops *operationrepo.OperationRepo) *AnalyticsFacade {
-	return &AnalyticsFacade{ops: ops}
+func NewAnalyticsFacade(ops repository.ICommonRepo) *AnalyticsFacade {
+	var r operationrepo.IOperationRepo
+	if casted, ok := ops.(operationrepo.IOperationRepo); ok {
+		r = casted
+	}
+	return &AnalyticsFacade{ops: r}
 }
 
 func (a *AnalyticsFacade) IncomeExpenseDelta(accountID service.ObjectID, from, to time.Time) (float64, float64, float64, error) {

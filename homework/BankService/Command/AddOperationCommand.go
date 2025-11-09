@@ -16,9 +16,14 @@ type AddOperationCommand struct {
 	Date        time.Time
 	CategoryID  service.ObjectID
 	Description string
+	CreatedID   service.ObjectID
 }
 
 func (c *AddOperationCommand) Execute() error {
-	_, err := c.Facade.CreateOperation(c.Type, c.AccountID, c.Amount, c.Date, c.CategoryID, c.Description)
-	return err
+	id, err := c.Facade.CreateOperation(c.Type, c.AccountID, c.Amount, c.Date, c.CategoryID, c.Description)
+	if err != nil {
+		return err
+	}
+	c.CreatedID = id
+	return nil
 }

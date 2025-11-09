@@ -43,7 +43,7 @@ func (f *jsonOperationFormatter) FormatData(data interface{}) ([]byte, error) {
 			CategoryID:    uuid.UUID(op.CategoryID()).String(),
 		})
 	}
-	return json.Marshal(res)
+	return json.MarshalIndent(res, "", "\t")
 }
 
 func NewJSONOperationExporter(filepath string) *exporter.BaseExporter {

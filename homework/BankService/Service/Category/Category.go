@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	service "github.com/ilyaytrewq/kpo-sb/homework/BankService/Service"
-
 )
 
 type CategoryType int
@@ -68,7 +67,7 @@ func NewCopyCategory(id service.ObjectID, name string, ctype CategoryType) (*Cat
 	}, nil
 }
 
-func (c *Category) ID() service.ObjectID { return c.id }
-func (c *Category) Name() string         { return c.name }
-func (c *Category) Type() CategoryType   { return c.ctype }
+func (c *Category) ID() service.ObjectID   { return c.id }
+func (c *Category) Name() string           { return c.name }
+func (c *Category) Type() CategoryType     { return c.ctype }
 func (c *Category) SetName(newName string) { c.name = newName }

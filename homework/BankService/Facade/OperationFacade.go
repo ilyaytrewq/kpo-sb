@@ -12,12 +12,16 @@ import (
 )
 
 type OperationFacade struct {
-	repo repository.ICommonRepo
-	opRepo *operationrepo.OperationRepo
+	repo   repository.ICommonRepo
+	opRepo operationrepo.IOperationRepo
 }
 
-func NewOperationFacade(repo *operationrepo.OperationRepo) *OperationFacade {
-	return &OperationFacade{repo: repo, opRepo: repo}
+func NewOperationFacade(repo repository.ICommonRepo) *OperationFacade {
+	var op operationrepo.IOperationRepo
+	if r, ok := repo.(operationrepo.IOperationRepo); ok {
+		op = r
+	}
+	return &OperationFacade{repo: repo, opRepo: op}
 }
 
 func (f *OperationFacade) CreateOperation(

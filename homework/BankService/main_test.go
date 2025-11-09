@@ -101,7 +101,7 @@ func TestJSONExportImportAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read exported err: %v", err)
 	}
-	if !strings.Contains(string(raw), "\"balance\":123.45") {
+	if !strings.Contains(string(raw), "\"balance\": 123.45") {
 		t.Fatalf("export content mismatch: %s", string(raw))
 	}
 
@@ -154,5 +154,88 @@ func TestTimerDecorator(t *testing.T) {
 	all, _ := bankRepo.All(context.Background())
 	if len(all) != 1 {
 		t.Fatalf("expected created account in repo")
+	}
+}
+
+// ---------- OperationFacade.GetOperationsByPeriod ----------
+func TestOperationFacade_GetOperationsByPeriod(t *testing.T) {
+	opRepo := operationrepo.NewOperationRepo()
+	fac := facade.NewOperationFacade(opRepo)
+
+	accID := service.ObjectID(uuid.New())
+	catID := service.ObjectID(uuid.New())
+	now := time.Now()
+	// boundary inclusive checks
+	in1, _ := operation.NewOperation(operation.Income, accID, 10, now.Add(-2*time.Hour), catID)
+	in2, _ := operation.NewOperation(operation.Spending, accID, 5, now, catID)
+	out1, _ := operation.NewOperation(operation.Spending, accID, 3, now.Add(-3*time.Hour), catID)
+	_ = opRepo.Save(context.Background(), in1)
+	_ = opRepo.Save(context.Background(), in2)
+	_ = opRepo.Save(context.Background(), out1)
+
+	from := now.Add(-2 * time.Hour)
+	to := now
+	got, err := fac.GetOperationsByPeriod(accID, from, to)
+	if err != nil {
+		t.Fatalf("GetOperationsByPeriod error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 ops (inclusive bounds), got %d", len(got))
+	}
+}
+
+// ---------- Analytics: GroupByCategory ----------
+func TestAnalytics_GroupByCategory(t *testing.T) {
+	opRepo := operationrepo.NewOperationRepo()
+	accID := service.ObjectID(uuid.New())
+	catA := service.ObjectID(uuid.New())
+	catB := service.ObjectID(uuid.New())
+	now := time.Now()
+	// A: 10 + 5, B: 7
+	a1, _ := operation.NewOperation(operation.Income, accID, 10, now.Add(-30*time.Minute), catA)
+	a2, _ := operation.NewOperation(operation.Spending, accID, 5, now.Add(-20*time.Minute), catA)
+	b1, _ := operation.NewOperation(operation.Spending, accID, 7, now.Add(-10*time.Minute), catB)
+	_ = opRepo.Save(context.Background(), a1)
+	_ = opRepo.Save(context.Background(), a2)
+	_ = opRepo.Save(context.Background(), b1)
+
+	analytics := facade.NewAnalyticsFacade(opRepo)
+	m, err := analytics.GroupByCategory(accID, now.Add(-1*time.Hour), now)
+	if err != nil {
+		t.Fatalf("group error: %v", err)
+	}
+	if m[catA] != 15 || m[catB] != 7 {
+		t.Fatalf("unexpected group sums: A=%v B=%v", m[catA], m[catB])
+	}
+}
+
+// ---------- Analytics: SplitByCategoryType ----------
+func TestAnalytics_SplitByCategoryType(t *testing.T) {
+	opRepo := operationrepo.NewOperationRepo()
+	accID := service.ObjectID(uuid.New())
+	catInc := service.ObjectID(uuid.New())
+	catExp := service.ObjectID(uuid.New())
+	now := time.Now()
+	inc1, _ := operation.NewOperation(operation.Income, accID, 11, now.Add(-15*time.Minute), catInc)
+	exp1, _ := operation.NewOperation(operation.Spending, accID, 4, now.Add(-14*time.Minute), catExp)
+	exp2, _ := operation.NewOperation(operation.Spending, accID, 6, now.Add(-13*time.Minute), catExp)
+	_ = opRepo.Save(context.Background(), inc1)
+	_ = opRepo.Save(context.Background(), exp1)
+	_ = opRepo.Save(context.Background(), exp2)
+
+	analytics := facade.NewAnalyticsFacade(opRepo)
+	cats := map[service.ObjectID]category.CategoryType{
+		catInc: category.Income,
+		catExp: category.Spending,
+	}
+	split, err := analytics.SplitByCategoryType(accID, now.Add(-1*time.Hour), now, cats)
+	if err != nil {
+		t.Fatalf("split error: %v", err)
+	}
+	if split[category.Income] != 11 {
+		t.Fatalf("unexpected income sum: %v", split[category.Income])
+	}
+	if split[category.Spending] != 10 {
+		t.Fatalf("unexpected spending sum: %v", split[category.Spending])
 	}
 }
