@@ -1,7 +1,9 @@
 package hse.kpo.services.cars;
 
+import hse.kpo.clients.NotificationClient;
 import hse.kpo.domains.Customer;
 import hse.kpo.domains.cars.Car;
+import hse.kpo.dto.request.NotificationRequest;
 import hse.kpo.enums.ProductionTypes;
 import hse.kpo.interfaces.cars.CarFactory;
 import hse.kpo.observers.Sales;
@@ -30,6 +32,7 @@ public class HseCarService implements CarProvider{
 
     private final CustomerProvider customerProvider;
     private final CarRepository carRepository;
+    private final NotificationClient notificationClient;
 
     public void addObserver(SalesObserver observer) {
         observers.add(observer);
@@ -51,6 +54,7 @@ public class HseCarService implements CarProvider{
                     if (Objects.nonNull(car)) {
                         customer.setCar(car);
                         notifyObserversForSale(customer, ProductionTypes.CAR, car.getVin());
+                        sendCarPurchaseNotification(customer, car);
                     } else {
                         log.warn("No car in CarService");
                     }
@@ -97,5 +101,21 @@ public class HseCarService implements CarProvider{
 
     public List<Car> getCars() {
         return carRepository.findAll();
+    }
+
+    private void sendCarPurchaseNotification(Customer customer, Car car) {
+        String message = String.format(
+                "Поздравляем, %s! Вы успешно приобрели автомобиль VIN-%d с двигателем %s",
+                customer.getName(), car.getVin(), car.getEngineType()
+        );
+
+        NotificationRequest request = new NotificationRequest(
+                customer.getName(),
+                message,
+                "PUSH"
+        );
+
+        var response = notificationClient.sendNotification(request);
+        log.info("Результат отправки уведомления: {}", response);
     }
 }
