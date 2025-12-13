@@ -1,4 +1,4 @@
-module ilyaytrewq/kpo-sb/anti-plagiarism
+module github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys
 
 go 1.25.4
 
