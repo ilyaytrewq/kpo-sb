@@ -28,7 +28,7 @@ import (
 */
 
 const (
-	maxFileSize = 64 << 20 // 64 MB
+	maxFileSize = 8 << 20 // 64 MB
 )
 
 type Handler struct {
