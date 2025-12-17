@@ -9,12 +9,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/handlers"
+	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/handler"
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/generated"
 )
 
 func main() {
-	h, err := handlers.NewHandler()
+	h, err := handler.NewHandler()
 	if err != nil {
 		log.Fatalf("failed to create handler: %v", err)
 	}
