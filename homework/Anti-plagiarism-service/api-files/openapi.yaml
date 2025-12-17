@@ -1,38 +1,47 @@
 openapi: 3.0.3
 info:
   title: Anti-Plagiarism Service API
-  version: "1.0.0"
-  description: Anti-plagiarism service for managing student works, submissions, and verification reports.
-
+  version: 1.0.0
+  description: Anti-plagiarism service for managing student works, submissions, and
+    verification reports.
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit/
 servers:
-  - url: http://localhost:8080
-    description: Local server
-
+- url: http://{host}:{port}/api/v1
+  description: Local/dev server
+  variables:
+    host:
+      default: localhost
+    port:
+      default: '8080'
 tags:
-  - name: Works
-  - name: Submissions
-  - name: Reports
-  - name: Stats
-
+- name: Works
+  description: Operations for managing works/assignments.
+- name: Submissions
+  description: Upload and fetch submissions.
+- name: Reports
+  description: Access plagiarism reports and analytics.
+- name: Stats
+  description: Aggregated statistics for a work.
 paths:
   /works:
     post:
-      tags: [Works]
+      tags:
+      - Works
       summary: Create a work
       description: Create a new work (assignment) with the specified workId.
       x-codeSamples:
-        - lang: cURL
-          label: Create homework
-          source: |
-            curl -X POST http://localhost:8080/works \
-              -H "Content-Type: application/json" \
-              -d '{"workId":"hw-kpo-3","name":"KPO HW-3","description":"Homework assignment for KPO course"}'
-        - lang: cURL
-          label: Create lab
-          source: |
-            curl -X POST http://localhost:8080/works \
-              -H "Content-Type: application/json" \
-              -d '{"workId":"lab-ml-1","name":"ML Lab #1","description":"Intro to plagiarism detection lab"}'
+      - lang: cURL
+        label: Create homework
+        source: "curl -X POST http://localhost:8080/works \\\n  -H \"Content-Type:\
+          \ application/json\" \\\n  -d '{\"workId\":\"hw-kpo-3\",\"name\":\"KPO HW-3\"\
+          ,\"description\":\"Homework assignment for KPO course\"}'\n"
+      - lang: cURL
+        label: Create lab
+        source: "curl -X POST http://localhost:8080/works \\\n  -H \"Content-Type:\
+          \ application/json\" \\\n  -d '{\"workId\":\"lab-ml-1\",\"name\":\"ML Lab\
+          \ #1\",\"description\":\"Intro to plagiarism detection lab\"}'\n"
       requestBody:
         required: true
         content:
@@ -43,37 +52,37 @@ paths:
               homework:
                 summary: Homework with short description
                 value:
-                  workId: "hw-kpo-3"
-                  name: "KPO HW-3"
-                  description: "Homework assignment for KPO course"
+                  workId: hw-kpo-3
+                  name: KPO HW-3
+                  description: Homework assignment for KPO course
               lab:
                 summary: Lab assignment with explicit id
                 value:
-                  workId: "lab-ml-1"
-                  name: "ML Lab #1"
-                  description: "Intro to plagiarism detection lab"
+                  workId: lab-ml-1
+                  name: 'ML Lab #1'
+                  description: Intro to plagiarism detection lab
       responses:
         '201':
           description: Work successfully created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkResponse'
+                $ref: '#/components/schemas/WorkCreateResponse'
               examples:
                 homework:
                   summary: Homework created
                   value:
-                    workId: "hw-kpo-3"
-                    name: "KPO HW-3"
-                    description: "Homework assignment for KPO course"
-                    createdAt: "2025-11-26T12:00:00Z"
+                    workId: hw-kpo-3
+                    name: KPO HW-3
+                    description: Homework assignment for KPO course
+                    createdAt: '2025-11-26T12:00:00Z'
                 lab:
                   summary: Lab created
                   value:
-                    workId: "lab-ml-1"
-                    name: "ML Lab #1"
-                    description: "Intro to plagiarism detection lab"
-                    createdAt: "2025-12-01T09:00:00Z"
+                    workId: lab-ml-1
+                    name: 'ML Lab #1'
+                    description: Intro to plagiarism detection lab
+                    createdAt: '2025-12-01T09:00:00Z'
         '400':
           description: Invalid request
           content:
@@ -81,8 +90,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "VALIDATION_ERROR"
-                message: "workId and name are required"
+                code: VALIDATION_ERROR
+                message: workId and name are required
         '409':
           description: Work with this workId already exists
           content:
@@ -90,8 +99,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "WORK_ALREADY_EXISTS"
-                message: "Work with this workId already exists"
+                code: WORK_ALREADY_EXISTS
+                message: Work with this workId already exists
         '500':
           description: Internal server error
           content:
@@ -99,35 +108,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "INTERNAL_ERROR"
-                message: "Unexpected server error"
-
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+      operationId: createWork
   /works/{workId}/submissions:
     post:
-      tags: [Submissions]
+      tags:
+      - Submissions
       summary: Submit work for review
-      description: Student uploads a work file for the specified assignment (workId).
+      description: "Student uploads a work file for the specified assignment (workId).\n\
+        Pipeline: API Gateway uploads file to file-storing → gets fileId → \nsends\
+        \ fileId to file-analysis for plagiarism check.\n"
       x-codeSamples:
-        - lang: cURL
-          label: Upload PDF
-          source: |
-            curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \
-              -F studentId=student-123 \
-              -F file=@hw3.pdf
-        - lang: cURL
-          label: Upload archive
-          source: |
-            curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \
-              -F studentId=student-456 \
-              -F file=@hw3.zip
+      - lang: cURL
+        label: Upload PDF
+        source: "curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \\\n\
+          \  -F \"file=@hw3.pdf\" \\\n"
+      - lang: cURL
+        label: Upload DOCX
+        source: "curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \\\n\
+          \  -F \"file=@hw3.docx\" \\\n"
       parameters:
-        - name: workId
-          in: path
-          required: true
-          description: Work/assignment identifier
-          schema:
-            type: string
-          example: "hw-kpo-3"
+      - name: workId
+        in: path
+        required: true
+        description: Work/assignment identifier
+        schema:
+          type: string
+        example: hw-kpo-3
       requestBody:
         required: true
         content:
@@ -138,37 +146,30 @@ paths:
               pdfUpload:
                 summary: PDF submission
                 value:
-                  studentId: "student-123"
-                  file: "@/home/user/documents/hw3.pdf"
-              archiveUpload:
-                summary: Archive submission
+                  file: '@/home/user/documents/hw3.pdf'
+              docxUpload:
+                summary: DOCX submission
                 value:
-                  studentId: "student-456"
-                  file: "@/home/user/documents/hw3.zip"
+                  file: '@/home/user/documents/hw3.docx'
       responses:
-        '201':
-          description: Submission accepted
+        '202':
+          description: Submission accepted and queued for plagiarism check
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubmissionCreatedResponse'
+                $ref: '#/components/schemas/SubmissionUploadResponse'
               examples:
-                firstSubmission:
-                  summary: First submission from student
+                accepted:
+                  summary: Submission accepted
                   value:
-                    submissionId: "sub-001"
-                    workId: "hw-kpo-3"
-                    studentId: "student-123"
-                    status: "PENDING"
-                    uploadedAt: "2025-11-26T12:30:00Z"
-                secondSubmission:
-                  summary: Another student submission
-                  value:
-                    submissionId: "sub-002"
-                    workId: "hw-kpo-3"
-                    studentId: "student-456"
-                    status: "PENDING"
-                    uploadedAt: "2025-11-26T12:45:00Z"
+                    submissionId: sub-001
+                    workId: hw-kpo-3
+                    fileId: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                    status: QUEUED
+                    uploadedAt: '2025-12-11T12:30:00Z'
+                    message: Submission accepted. Plagiarism check is queued. Use
+                      GET /works/{workId}/reports or GET /submissions/{submissionId}
+                      to check results.
         '400':
           description: Invalid request
           content:
@@ -176,8 +177,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "VALIDATION_ERROR"
-                message: "File and studentId are required"
+                code: VALIDATION_ERROR
+                message: File are required
         '404':
           description: Work not found
           content:
@@ -185,8 +186,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "WORK_NOT_FOUND"
-                message: "Work with this workId not found"
+                code: WORK_NOT_FOUND
+                message: Work with this workId not found
         '500':
           description: Internal server error
           content:
@@ -194,27 +195,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "INTERNAL_ERROR"
-                message: "Unexpected server error"
-
+                code: INTERNAL_ERROR
+                message: Failed to store file or queue plagiarism check
+      operationId: submitWork
   /works/{workId}/reports:
     get:
-      tags: [Reports]
+      tags:
+      - Reports
       summary: Get analytics by workId
-      description: Get a list of reports/analytics for all submissions associated with the given workId.
+      description: Get a list of reports/analytics for all submissions associated
+        with the given workId.
       x-codeSamples:
-        - lang: cURL
-          label: Fetch reports
-          source: |
-            curl http://localhost:8080/works/hw-kpo-3/reports
+      - lang: cURL
+        label: Fetch reports
+        source: 'curl http://localhost:8080/works/hw-kpo-3/reports
+
+          '
       parameters:
-        - name: workId
-          in: path
-          required: true
-          description: Work identifier
-          schema:
-            type: string
-          example: "hw-kpo-3"
+      - name: workId
+        in: path
+        required: true
+        description: Work identifier
+        schema:
+          type: string
+        example: hw-kpo-3
       responses:
         '200':
           description: List of reports for the work
@@ -224,39 +228,35 @@ paths:
                 $ref: '#/components/schemas/WorkReportsResponse'
               examples:
                 mixedStatuses:
-                  summary: Mixed DONE and PENDING reports
+                  summary: Mixed DONE and PROCESSING reports
                   value:
-                    - reportId: "rep-001"
-                      submissionId: "sub-001"
-                      studentId: "student-123"
-                      status: "DONE"
-                      plagiarismDetected: true
-                      similarityPercent: 45.5
-                      createdAt: "2025-11-26T13:00:00Z"
-                    - reportId: "rep-002"
-                      submissionId: "sub-002"
-                      studentId: "student-456"
-                      status: "PENDING"
-                      plagiarismDetected: false
-                      similarityPercent: 0
-                      createdAt: "2025-11-26T13:05:00Z"
+                  - reportId: rep-001
+                    submissionId: sub-001
+                    status: DONE
+                    plagiarismDetected: true
+                    similarityPercent: 45.5
+                    createdAt: '2025-11-26T13:00:00Z'
+                  - reportId: rep-002
+                    submissionId: sub-002
+                    status: PROCESSING
+                    plagiarismDetected: false
+                    similarityPercent: 0
+                    createdAt: '2025-11-26T13:05:00Z'
                 allClean:
                   summary: Reports without detected plagiarism
                   value:
-                    - reportId: "rep-010"
-                      submissionId: "sub-010"
-                      studentId: "student-222"
-                      status: "DONE"
-                      plagiarismDetected: false
-                      similarityPercent: 3.4
-                      createdAt: "2025-11-27T09:15:00Z"
-                    - reportId: "rep-011"
-                      submissionId: "sub-011"
-                      studentId: "student-333"
-                      status: "DONE"
-                      plagiarismDetected: false
-                      similarityPercent: 1.1
-                      createdAt: "2025-11-27T09:20:00Z"
+                  - reportId: rep-010
+                    submissionId: sub-010
+                    status: DONE
+                    plagiarismDetected: false
+                    similarityPercent: 3.4
+                    createdAt: '2025-11-27T09:15:00Z'
+                  - reportId: rep-011
+                    submissionId: sub-011
+                    status: DONE
+                    plagiarismDetected: false
+                    similarityPercent: 1.1
+                    createdAt: '2025-11-27T09:20:00Z'
         '404':
           description: Work not found
           content:
@@ -264,8 +264,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "WORK_NOT_FOUND"
-                message: "Work with this workId not found"
+                code: WORK_NOT_FOUND
+                message: Work with this workId not found
         '500':
           description: Internal server error
           content:
@@ -273,27 +273,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "INTERNAL_ERROR"
-                message: "Unexpected server error"
-
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+      operationId: listWorkReports
   /submissions/{submissionId}:
     get:
-      tags: [Submissions]
+      tags:
+      - Submissions
       summary: Get submission details
       description: Get detailed information about a specific work submission.
       x-codeSamples:
-        - lang: cURL
-          label: Fetch submission
-          source: |
-            curl http://localhost:8080/submissions/sub-001
+      - lang: cURL
+        label: Fetch submission
+        source: 'curl http://localhost:8080/submissions/sub-001
+
+          '
       parameters:
-        - name: submissionId
-          in: path
-          required: true
-          description: Submission identifier
-          schema:
-            type: string
-          example: "sub-001"
+      - name: submissionId
+        in: path
+        required: true
+        description: Submission identifier
+        schema:
+          type: string
+        example: sub-001
       responses:
         '200':
           description: Submission details
@@ -305,27 +307,29 @@ paths:
                 done:
                   summary: Completed report available
                   value:
-                    submissionId: "sub-001"
-                    workId: "hw-kpo-3"
-                    studentId: "student-123"
-                    fileUrl: "/files/sub-001/work.pdf"
-                    uploadedAt: "2025-11-26T12:30:00Z"
-                    lastReport:
-                      status: "DONE"
+                    submissionId: sub-001
+                    workId: hw-kpo-3
+                    fileId: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                    status: DONE
+                    uploadedAt: '2025-11-26T12:30:00Z'
+                    report:
+                      status: DONE
                       plagiarismDetected: true
                       similarityPercent: 45.5
+                      matchedSubmissions:
+                      - submissionId: sub-0002
+                        matchedChunks: 12
+                        similarityPercent: 78.0
+                      reportId: rep-001
+                      createdAt: '2025-11-26T12:35:00Z'
                 pending:
                   summary: Pending plagiarism check
                   value:
-                    submissionId: "sub-099"
-                    workId: "hw-kpo-3"
-                    studentId: "student-789"
-                    fileUrl: "/files/sub-099/work.docx"
-                    uploadedAt: "2025-11-27T10:10:00Z"
-                    lastReport:
-                      status: "PENDING"
-                      plagiarismDetected: false
-                      similarityPercent: 0
+                    submissionId: sub-099
+                    workId: hw-kpo-3
+                    fileId: c56a4180-65aa-42ec-a945-5fd21dec0538
+                    status: QUEUED
+                    uploadedAt: '2025-11-27T10:10:00Z'
         '404':
           description: Submission not found
           content:
@@ -333,8 +337,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "SUBMISSION_NOT_FOUND"
-                message: "Submission with this submissionId not found"
+                code: SUBMISSION_NOT_FOUND
+                message: Submission with this submissionId not found
         '500':
           description: Internal server error
           content:
@@ -342,27 +346,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "INTERNAL_ERROR"
-                message: "Unexpected server error"
-
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+      operationId: getSubmission
   /works/{workId}/stats:
     get:
-      tags: [Stats]
+      tags:
+      - Stats
       summary: Get statistics by workId
       description: Return aggregated statistics for the work.
       x-codeSamples:
-        - lang: cURL
-          label: Fetch statistics
-          source: |
-            curl http://localhost:8080/works/hw-kpo-3/stats
+      - lang: cURL
+        label: Fetch statistics
+        source: 'curl http://localhost:8080/works/hw-kpo-3/stats
+
+          '
       parameters:
-        - name: workId
-          in: path
-          required: true
-          description: Work identifier
-          schema:
-            type: string
-          example: "hw-kpo-3"
+      - name: workId
+        in: path
+        required: true
+        description: Work identifier
+        schema:
+          type: string
+        example: hw-kpo-3
       responses:
         '200':
           description: Work statistics
@@ -374,19 +380,17 @@ paths:
                 activeWork:
                   summary: Active work with ongoing submissions
                   value:
-                    workId: "hw-kpo-3"
+                    workId: hw-kpo-3
                     totalSubmissions: 50
-                    uniqueStudents: 48
                     submissionsWithPlagiarism: 5
                     submissionsWithoutPlagiarism: 45
                     averageSimilarityPercent: 12.3
-                    lastSubmissionAt: "2025-11-26T15:00:00Z"
+                    lastSubmissionAt: '2025-11-26T15:00:00Z'
                 newWork:
                   summary: Newly created work without submissions
                   value:
-                    workId: "lab-ml-1"
+                    workId: lab-ml-1
                     totalSubmissions: 0
-                    uniqueStudents: 0
                     submissionsWithPlagiarism: 0
                     submissionsWithoutPlagiarism: 0
                     averageSimilarityPercent: 0
@@ -398,8 +402,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "WORK_NOT_FOUND"
-                message: "Work with this workId not found"
+                code: WORK_NOT_FOUND
+                message: Work with this workId not found
         '500':
           description: Internal server error
           content:
@@ -407,23 +411,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: "INTERNAL_ERROR"
-                message: "Unexpected server error"
-
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+      operationId: getWorkStats
 components:
   schemas:
     ErrorCode:
       type: string
       enum:
-        - VALIDATION_ERROR
-        - WORK_ALREADY_EXISTS
-        - WORK_NOT_FOUND
-        - SUBMISSION_NOT_FOUND
-        - REPORT_NOT_FOUND
-        - INTERNAL_ERROR
-        - UNAUTHORIZED
-        - FORBIDDEN
-
+      - VALIDATION_ERROR
+      - WORK_ALREADY_EXISTS
+      - WORK_NOT_FOUND
+      - SUBMISSION_NOT_FOUND
+      - REPORT_NOT_FOUND
+      - INTERNAL_ERROR
+      - UNAUTHORIZED
+      - FORBIDDEN
     ErrorDetail:
       type: object
       properties:
@@ -433,10 +436,11 @@ components:
         message:
           type: string
           description: Human-readable description of the issue
-
     ErrorResponse:
       type: object
-      required: [code, message]
+      required:
+      - code
+      - message
       properties:
         code:
           $ref: '#/components/schemas/ErrorCode'
@@ -447,10 +451,12 @@ components:
           description: Optional list of validation errors
           items:
             $ref: '#/components/schemas/ErrorDetail'
-
     WorkCreateRequest:
       type: object
-      required: [workId, name, description]
+      required:
+      - workId
+      - name
+      - description
       properties:
         workId:
           type: string
@@ -461,10 +467,13 @@ components:
         description:
           type: string
           description: Work description
-
-    WorkResponse:
+    WorkCreateResponse:
       type: object
-      required: [workId, name, description, createdAt]
+      required:
+      - workId
+      - name
+      - description
+      - createdAt
       properties:
         workId:
           type: string
@@ -475,130 +484,233 @@ components:
         createdAt:
           type: string
           format: date-time
-
     SubmissionUploadRequest:
       type: object
-      required: [studentId, file]
+      required:
+      - file
       properties:
-        studentId:
-          type: string
-          description: Student identifier
         file:
           type: string
           format: binary
-          description: Work file (PDF/DOCX/ZIP)
-
-    SubmissionCreatedResponse:
+          description: Work file (PDF, DOCX, TXT, RTF, ODT)
+    SubmissionUploadResponse:
       type: object
-      required: [submissionId, workId, studentId, status, uploadedAt]
+      required:
+      - submissionId
+      - workId
+      - fileId
+      - status
+      - uploadedAt
       properties:
         submissionId:
           type: string
+          description: Unique submission identifier
+          example: sub-001
         workId:
           type: string
-        studentId:
+          description: Work identifier
+          example: hw-kpo-3
+        fileId:
           type: string
+          format: uuid
+          description: File ID from file-storing service
+          example: f47ac10b-58cc-4372-a567-0e02b2c3d479
         status:
           type: string
-          enum: [PENDING, DONE, ERROR]
+          enum:
+          - QUEUED
+          - PROCESSING
+          - DONE
+          - ERROR
+          description: Status of plagiarism check
+          example: QUEUED
         uploadedAt:
           type: string
           format: date-time
-
+          description: Timestamp when submission was uploaded
+          example: '2025-12-11T12:30:00Z'
+        message:
+          type: string
+          description: Human-readable message about submission status
+          example: Submission accepted. Plagiarism check is queued.
     SubmissionDetail:
       type: object
-      required: [submissionId, workId, studentId, fileUrl, uploadedAt]
+      required:
+      - submissionId
+      - workId
+      - fileId
+      - status
+      - uploadedAt
       properties:
         submissionId:
           type: string
+          description: Unique submission identifier
+          example: sub-001
         workId:
           type: string
-        studentId:
+          description: Work identifier
+          example: hw-kpo-3
+        fileId:
           type: string
-        fileUrl:
+          format: uuid
+          description: File ID in file-storing service
+          example: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        status:
           type: string
-          description: URL for file download
+          enum:
+          - QUEUED
+          - PROCESSING
+          - DONE
+          - ERROR
+          description: Current status of plagiarism check
+          example: DONE
         uploadedAt:
           type: string
           format: date-time
-        lastReport:
-          $ref: '#/components/schemas/ReportSummary'
-
-    Report:
+          description: Timestamp when submission was uploaded
+          example: '2025-12-11T12:30:00Z'
+        report:
+          $ref: '#/components/schemas/PlagiarismReport'
+    PlagiarismReport:
       type: object
-      required: [reportId, submissionId, status, plagiarismDetected, similarityPercent, createdAt]
+      required:
+      - reportId
+      - status
+      - plagiarismDetected
+      - similarityPercent
+      - createdAt
       properties:
         reportId:
           type: string
-        submissionId:
-          type: string
+          description: Unique report identifier
+          example: rep-001
         status:
           type: string
-          enum: [PENDING, DONE, ERROR]
+          enum:
+          - QUEUED
+          - PROCESSING
+          - DONE
+          - ERROR
+          description: Report status
+          example: DONE
         plagiarismDetected:
           type: boolean
+          description: Whether plagiarism was detected (typically if similarityPercent
+            > 50%)
+          example: true
         similarityPercent:
           type: number
           format: float
+          description: Overall similarity percentage (0-100)
           minimum: 0
           maximum: 100
+          example: 78.5
         createdAt:
           type: string
           format: date-time
-
-    ReportSummary:
-      type: object
-      required: [status, plagiarismDetected, similarityPercent]
-      properties:
-        status:
+          description: Timestamp when report was created
+          example: '2025-12-11T13:00:00Z'
+        completedAt:
           type: string
-          enum: [PENDING, DONE, ERROR]
-        plagiarismDetected:
-          type: boolean
+          format: date-time
+          description: Timestamp when analysis completed (only if status is DONE)
+          example: '2025-12-11T13:05:00Z'
+        errorMessage:
+          type: string
+          description: Error message if status is ERROR
+          example: Failed to extract text from document
+        matchedSubmissions:
+          type: array
+          description: List of submissions with high similarity
+          items:
+            $ref: '#/components/schemas/MatchedSubmission'
+    MatchedSubmission:
+      type: object
+      required:
+      - submissionId
+      - similarityPercent
+      - matchedChunks
+      properties:
+        submissionId:
+          type: string
+          description: ID of the matched submission
+          example: sub-042
         similarityPercent:
           type: number
           format: float
+          description: Similarity percentage with this submission
           minimum: 0
           maximum: 100
-
-    WorkAnalyticsItem:
+          example: 78.5
+        matchedChunks:
+          type: integer
+          description: Number of text chunks that matched
+          minimum: 0
+          example: 12
+    WorkReportItem:
       type: object
-      required: [reportId, submissionId, studentId, status, plagiarismDetected, similarityPercent, createdAt]
+      required:
+      - reportId
+      - submissionId
+      - status
+      - plagiarismDetected
+      - similarityPercent
+      - createdAt
       properties:
         reportId:
           type: string
+          description: Unique report identifier
+          example: rep-001
         submissionId:
           type: string
-        studentId:
-          type: string
+          description: Submission identifier
+          example: sub-001
         status:
           type: string
-          enum: [PENDING, DONE, ERROR]
+          enum:
+          - QUEUED
+          - PROCESSING
+          - DONE
+          - ERROR
+          description: Report status
+          example: DONE
         plagiarismDetected:
           type: boolean
+          description: Whether plagiarism was detected
+          example: true
         similarityPercent:
           type: number
           format: float
+          description: Similarity percentage (0-100)
           minimum: 0
           maximum: 100
+          example: 78.5
         createdAt:
           type: string
           format: date-time
-
+          description: Timestamp when report was created
+          example: '2025-12-11T13:00:00Z'
+        completedAt:
+          type: string
+          format: date-time
+          description: Timestamp when analysis completed
+          example: '2025-12-11T13:05:00Z'
     WorkReportsResponse:
       type: array
       items:
-        $ref: '#/components/schemas/WorkAnalyticsItem'
-
+        $ref: '#/components/schemas/WorkReportItem'
     WorkStats:
       type: object
-      required: [workId, totalSubmissions, uniqueStudents, submissionsWithPlagiarism, submissionsWithoutPlagiarism, averageSimilarityPercent]
+      required:
+      - workId
+      - totalSubmissions
+      - submissionsWithPlagiarism
+      - submissionsWithoutPlagiarism
+      - averageSimilarityPercent
       properties:
         workId:
           type: string
         totalSubmissions:
-          type: integer
-        uniqueStudents:
           type: integer
         submissionsWithPlagiarism:
           type: integer
@@ -611,3 +723,4 @@ components:
           type: string
           format: date-time
           nullable: true
+security: []
