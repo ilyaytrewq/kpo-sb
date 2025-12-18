@@ -7,24 +7,24 @@ info:
     name: MIT
     url: https://opensource.org/license/mit/
 servers:
-- url: http://{host}:{port}/api/v1
-  description: Internal embedding service
-  variables:
-    host:
-      default: localhost
-    port:
-      default: '8083'
+  - url: http://{host}:{port}/api/v1
+    description: Internal embedding service
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8083"
 security: []
 tags:
-- name: Embeddings
-  description: Embedding generation endpoints
-- name: Health
-  description: Health check
+  - name: Embeddings
+    description: Embedding generation endpoints
+  - name: Health
+    description: Health check
+
 paths:
   /embed:
     post:
-      tags:
-      - Embeddings
+      tags: [Embeddings]
       summary: Generate embeddings for chunks
       operationId: embed
       requestBody:
@@ -32,96 +32,68 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EmbedRequest'
+              $ref: "#/components/schemas/EmbedRequest"
       responses:
-        '200':
+        "200":
           description: Embeddings generated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EmbedResult'
+                $ref: "#/components/schemas/EmbedResult"
               examples:
-                single_result:
-                  summary: Single embedding result
-                  value:
-                    model: text-embedding-3-small
-                    dimension: 1536
-                    embeddings:
-                    - chunkId: chunk-001
-                      chunkIndex: 0
-                      dimension: 1536
-                      embedding:
-                      - 0.123
-                      - -0.456
-                      - 0.789
                 multiple_results:
                   summary: Multiple embedding results
                   value:
-                    model: text-embedding-3-small
-                    dimension: 1536
+                    model: text-search-doc
+                    dimension: 256
                     embeddings:
-                    - chunkId: chunk-001
-                      chunkIndex: 0
-                      dimension: 1536
-                      embedding:
-                      - 0.123
-                      - -0.456
-                      - 0.789
-                    - chunkId: chunk-002
-                      chunkIndex: 1
-                      dimension: 1536
-                      embedding:
-                      - 0.234
-                      - -0.567
-                      - 0.89
-        '400':
+                      - chunkId: chunk-001
+                        chunkIndex: 0
+                        dimension: 256
+                        embedding: [0.123, -0.456, 0.789]
+                      - chunkId: chunk-002
+                        chunkIndex: 1
+                        dimension: 256
+                        embedding: [0.234, -0.567, 0.89]
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
           description: Internal error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
+
   /health:
     get:
-      tags:
-      - Health
+      tags: [Health]
       summary: Health check
       operationId: healthCheck
       responses:
-        '200':
+        "200":
           description: OK
-        '400':
+        "400":
           description: Bad request
+
 components:
   schemas:
     EmbedRequest:
       type: object
-      required:
-      - chunks
+      required: [chunks]
       properties:
-        model:
-          type: string
-          description: Embedding model identifier
-          enum:
-          - text-embedding-3-small
-          - text-embedding-3-large
-          default: text-embedding-3-small
         chunks:
           type: array
           minItems: 1
           items:
-            $ref: '#/components/schemas/TextChunk'
+            $ref: "#/components/schemas/TextChunk"
+
     TextChunk:
       type: object
-      required:
-      - chunkId
-      - text
-      - chunkIndex
+      required: [chunkId, text, chunkIndex]
       properties:
         chunkId:
           type: string
@@ -130,29 +102,25 @@ components:
         chunkIndex:
           type: integer
           minimum: 0
+
     EmbedResult:
       type: object
-      required:
-      - model
-      - dimension
-      - embeddings
+      required: [model, dimension, embeddings]
       properties:
         model:
           type: string
+          description: Model actually used by the service (configured server-side).
         dimension:
           type: integer
-          description: Vector dimension for the chosen model (e.g., 1536 or 3072).
+          description: Vector dimension for the configured model.
         embeddings:
           type: array
           items:
-            $ref: '#/components/schemas/ChunkEmbedding'
+            $ref: "#/components/schemas/ChunkEmbedding"
+
     ChunkEmbedding:
       type: object
-      required:
-      - chunkId
-      - chunkIndex
-      - dimension
-      - embedding
+      required: [chunkId, chunkIndex, dimension, embedding]
       properties:
         chunkId:
           type: string
@@ -166,24 +134,19 @@ components:
           description: Embedding vector; length equals `dimension`.
           items:
             type: number
-            format: float
-          example:
-          - 0.123
-          - -0.456
-          - 0.789
+            format: double
+          example: [0.123, -0.456, 0.789]
+
     ErrorCode:
       type: string
-      enum:
-      - BAD_REQUEST
-      - INTERNAL_ERROR
+      enum: [BAD_REQUEST, INTERNAL_ERROR]
+
     ErrorResponse:
       type: object
-      required:
-      - code
-      - message
+      required: [code, message]
       properties:
         code:
-          $ref: '#/components/schemas/ErrorCode'
+          $ref: "#/components/schemas/ErrorCode"
         message:
           type: string
         details:
