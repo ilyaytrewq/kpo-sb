@@ -64,9 +64,6 @@ type AnalyzeResponse struct {
 	// QueuedAt Timestamp when queued
 	QueuedAt time.Time `json:"queuedAt"`
 
-	// ReportId Unique report identifier
-	ReportId string `json:"reportId"`
-
 	// Status Initial status
 	Status AnalyzeResponseStatus `json:"status"`
 
@@ -100,7 +97,7 @@ type MatchedSubmission struct {
 	MatchedChunks int `json:"matchedChunks"`
 
 	// SimilarityPercent Similarity percentage with this submission
-	SimilarityPercent float32 `json:"similarityPercent"`
+	SimilarityPercent float64 `json:"similarityPercent"`
 
 	// SubmissionId ID of matched submission
 	SubmissionId string `json:"submissionId"`
@@ -123,9 +120,6 @@ type ReportResponse struct {
 	// PlagiarismDetected True if similarityPercent > 50%
 	PlagiarismDetected bool `json:"plagiarismDetected"`
 
-	// ReportId Unique report identifier
-	ReportId string `json:"reportId"`
-
 	// SimilarityPercent Similarity percentage (0-100)
 	SimilarityPercent float32 `json:"similarityPercent"`
 
@@ -147,7 +141,6 @@ type WorkReportItem struct {
 	CompletedAt        *time.Time           `json:"completedAt,omitempty"`
 	CreatedAt          time.Time            `json:"createdAt"`
 	PlagiarismDetected bool                 `json:"plagiarismDetected"`
-	ReportId           string               `json:"reportId"`
 	SimilarityPercent  float32              `json:"similarityPercent"`
 	Status             WorkReportItemStatus `json:"status"`
 	SubmissionId       string               `json:"submissionId"`
@@ -162,7 +155,7 @@ type WorkReportsResponse = []WorkReportItem
 // AnalyzeFileJSONRequestBody defines body for AnalyzeFile for application/json ContentType.
 type AnalyzeFileJSONRequestBody = AnalyzeRequest
 
-// ServerInterface represents all server handlers.
+// ServerInterface represents all server handler.
 type ServerInterface interface {
 	// Start plagiarism analysis for a file
 	// (POST /analyze)
@@ -171,7 +164,7 @@ type ServerInterface interface {
 	// (GET /reports/{submissionId})
 	GetReport(w http.ResponseWriter, r *http.Request, submissionId string)
 	// Get all reports for a work
-	// (GET /reports/{workId})
+	// (GET /works/{workId}/reports)
 	GetWorkReports(w http.ResponseWriter, r *http.Request, workId string)
 }
 
@@ -192,7 +185,7 @@ func (_ Unimplemented) GetReport(w http.ResponseWriter, r *http.Request, submiss
 }
 
 // Get all reports for a work
-// (GET /reports/{workId})
+// (GET /works/{workId}/reports)
 func (_ Unimplemented) GetWorkReports(w http.ResponseWriter, r *http.Request, workId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -390,7 +383,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/reports/{submissionId}", wrapper.GetReport)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/reports/{workId}", wrapper.GetWorkReports)
+		r.Get(options.BaseURL+"/works/{workId}/reports", wrapper.GetWorkReports)
 	})
 
 	return r

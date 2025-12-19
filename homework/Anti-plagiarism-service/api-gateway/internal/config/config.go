@@ -6,11 +6,10 @@ import (
 	"strconv"
 )
 
-
 type FileStoringConfig struct {
 	Host string
 	Port int
-	Url string
+	Url  string
 }
 
 func LoadFileStoringConfig() (*FileStoringConfig, error) {
@@ -31,14 +30,14 @@ func LoadFileStoringConfig() (*FileStoringConfig, error) {
 	return &FileStoringConfig{
 		Host: host,
 		Port: port,
-		Url: fmt.Sprintf("http://%s:%d", host, port),
+		Url:  fmt.Sprintf("http://%s:%d/api/v1", host, port),
 	}, nil
 }
 
 type FileAnalysisConfig struct {
 	Host string
 	Port int
-	Url string
+	Url  string
 }
 
 func LoadFileAnalysisConfig() (*FileAnalysisConfig, error) {
@@ -59,6 +58,6 @@ func LoadFileAnalysisConfig() (*FileAnalysisConfig, error) {
 	return &FileAnalysisConfig{
 		Host: host,
 		Port: port,
-		Url: fmt.Sprintf("http://%s:%d", host, port),
+		Url:  fmt.Sprintf("http://%s:%d/api/v1", host, port),
 	}, nil
 }

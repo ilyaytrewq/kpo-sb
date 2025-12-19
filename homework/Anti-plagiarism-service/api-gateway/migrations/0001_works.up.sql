@@ -1,8 +1,6 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 CREATE TABLE IF NOT EXISTS works (
-  work_id     uuid PRIMARY KEY,
+  work_id     text PRIMARY KEY,
   name       text NOT NULL,
-  description text,
+  description text NOT NULL,
   created_at  timestamptz NOT NULL DEFAULT now()
 );

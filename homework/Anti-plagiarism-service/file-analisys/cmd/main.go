@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/generated"
-	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/handler"
+	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/api/handler"
+	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/api/generated"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 
 	r.Use(accessLog)
 
-	r.Get("/health", h.Health)
+	r.Get("/health", h.HealthCheck)
 
 	r.Mount("/api/v1", apiHandler)
 

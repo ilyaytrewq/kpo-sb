@@ -1,0 +1,48 @@
+# --- Go binaries / artifacts ---
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.a
+*.o
+
+# Build output
+/bin/
+/dist/
+/build/
+/target/
+
+# Coverage
+*.cover
+coverage.out
+coverage*.out
+
+# Go workspace (Go 1.18+)
+go.work
+go.work.sum
+
+# Dependencies (если используешь)
+vendor/
+
+# Logs
+*.log
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Local env / secrets ---
+*.env
+.env.*
+!.env.example
+
+# --- Debug / profiling ---
+*.pprof
+*.trace

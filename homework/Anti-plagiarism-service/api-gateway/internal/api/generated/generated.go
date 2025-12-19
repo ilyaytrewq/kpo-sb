@@ -238,7 +238,7 @@ type CreateWorkJSONRequestBody = WorkCreateRequest
 // SubmitWorkMultipartRequestBody defines body for SubmitWork for multipart/form-data ContentType.
 type SubmitWorkMultipartRequestBody = SubmissionUploadRequest
 
-// ServerInterface represents all server handlers.
+// ServerInterface represents all server handler.
 type ServerInterface interface {
 	// Get submission details
 	// (GET /submissions/{submissionId})

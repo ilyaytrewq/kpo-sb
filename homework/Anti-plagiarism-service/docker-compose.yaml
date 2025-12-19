@@ -1,0 +1,90 @@
+version: "3.9"
+
+name: antiplag-infra
+
+networks:
+  antiplag:
+    driver: bridge
+
+volumes:
+  pg_gateway_data:
+  pg_analysis_data:
+  minio_data:
+  qdrant_storage:
+
+services:
+  postgres-gateway:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${PG_GATEWAY_DB}
+      POSTGRES_USER: ${PG_GATEWAY_USER}
+      POSTGRES_PASSWORD: ${PG_GATEWAY_PASSWORD}
+    ports:
+      - "${PG_GATEWAY_PORT}:5432"
+    volumes:
+      - pg_gateway_data:/var/lib/postgresql/data
+    networks: [antiplag]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_GATEWAY_USER} -d ${PG_GATEWAY_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  postgres-analysis:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${PG_ANALYSIS_DB}
+      POSTGRES_USER: ${PG_ANALYSIS_USER}
+      POSTGRES_PASSWORD: ${PG_ANALYSIS_PASSWORD}
+    ports:
+      - "${PG_ANALYSIS_PORT}:5432"
+    volumes:
+      - pg_analysis_data:/var/lib/postgresql/data
+    networks: [antiplag]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_ANALYSIS_USER} -d ${PG_ANALYSIS_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_API_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - minio_data:/data
+    networks: [antiplag]
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    networks: [antiplag]
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null 2>&1; do
+        sleep 2;
+      done;
+      echo 'Creating bucket...';
+      mc mb -p local/$${S3_BUCKET} >/dev/null 2>&1 || true;
+      echo 'Done.';
+      exit 0;
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET}
+  qdrant:
+    image: qdrant/qdrant:v1.16.2
+    ports:
+      - "${QDRANT_HTTP_PORT}:6333"
+      - "${QDRANT_GRPC_PORT}:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks: [antiplag]

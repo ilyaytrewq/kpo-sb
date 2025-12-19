@@ -14,12 +14,6 @@ import (
 	"strings"
 )
 
-// Defines values for EmbedRequestModel.
-const (
-	TextEmbedding3Large EmbedRequestModel = "text-embedding-3-large"
-	TextEmbedding3Small EmbedRequestModel = "text-embedding-3-small"
-)
-
 // Defines values for ErrorCode.
 const (
 	BADREQUEST    ErrorCode = "BAD_REQUEST"
@@ -33,26 +27,22 @@ type ChunkEmbedding struct {
 	Dimension  int    `json:"dimension"`
 
 	// Embedding Embedding vector; length equals `dimension`.
-	Embedding []float32 `json:"embedding"`
+	Embedding []float64 `json:"embedding"`
 }
 
 // EmbedRequest defines model for EmbedRequest.
 type EmbedRequest struct {
 	Chunks []TextChunk `json:"chunks"`
-
-	// Model Embedding model identifier
-	Model *EmbedRequestModel `json:"model,omitempty"`
 }
-
-// EmbedRequestModel Embedding model identifier
-type EmbedRequestModel string
 
 // EmbedResult defines model for EmbedResult.
 type EmbedResult struct {
-	// Dimension Vector dimension for the chosen model (e.g., 1536 or 3072).
+	// Dimension Vector dimension for the configured model.
 	Dimension  int              `json:"dimension"`
 	Embeddings []ChunkEmbedding `json:"embeddings"`
-	Model      string           `json:"model"`
+
+	// Model Model actually used by the service (configured server-side).
+	Model string `json:"model"`
 }
 
 // ErrorCode defines model for ErrorCode.

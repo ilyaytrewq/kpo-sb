@@ -5,6 +5,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
 
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/generated"
 )
@@ -51,6 +55,10 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request, params api.
 		writeError(w, http.StatusBadRequest, api.BADREQUEST, "Invalid metadata JSON")
 		return
 	}
+	if strings.TrimSpace(uploadRequest.Metadata.WorkId) == "" {
+		writeError(w, http.StatusBadRequest, api.BADREQUEST, "workId is required")
+		return
+	}
 	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
 		log.Printf("Failed to get file from form data: %v", err)
@@ -59,12 +67,38 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request, params api.
 	}
 	defer file.Close()
 
-	var reader io.Reader = file
-	log.Printf("Uploading file: Bucket=%s, WorkID=%s, OriginalFileName=%s, ContentType=%s, Size=%d", h.service.Config.Bucket, uploadRequest.Metadata.WorkId, *uploadRequest.Metadata.OriginalFileName, *uploadRequest.Metadata.ContentType, fileHeader.Size)
+	contentType := "application/octet-stream"
+	if uploadRequest.Metadata.ContentType != nil && strings.TrimSpace(*uploadRequest.Metadata.ContentType) != "" {
+		contentType = *uploadRequest.Metadata.ContentType
+	}
+	originalFileName := fileHeader.Filename
+	if uploadRequest.Metadata.OriginalFileName != nil && strings.TrimSpace(*uploadRequest.Metadata.OriginalFileName) != "" {
+		originalFileName = *uploadRequest.Metadata.OriginalFileName
+	}
 
-	if err := h.service.Upload(r.Context(), h.service.Config.Bucket, uploadRequest.Metadata.WorkId, *uploadRequest.Metadata.ContentType, *uploadRequest.Metadata.OriginalFileName, reader, fileHeader.Size); err != nil {
+	var reader io.Reader = file
+	fileID := uuid.New()
+	log.Printf("Uploading file: Bucket=%s, FileID=%s, WorkID=%s, OriginalFileName=%s, ContentType=%s, Size=%d", h.service.Config.Bucket, fileID.String(), uploadRequest.Metadata.WorkId, originalFileName, contentType, fileHeader.Size)
+
+	if err := h.service.Upload(r.Context(), h.service.Config.Bucket, fileID.String(), contentType, originalFileName, reader, fileHeader.Size); err != nil {
 		log.Printf("Failed to upload file: %v", err)
 		writeError(w, http.StatusInternalServerError, api.INTERNALERROR, "Failed to upload file")
+		return
+	}
+
+	storedAt := time.Now().UTC()
+	size := fileHeader.Size
+	result := api.UploadFileResult{
+		FileId:           fileID,
+		StoredAt:         storedAt,
+		SizeBytes:        &size,
+		ContentType:      &contentType,
+		OriginalFileName: &originalFileName,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("Failed to encode upload response: %v", err)
+		writeError(w, http.StatusInternalServerError, api.INTERNALERROR, "Failed to encode response")
 		return
 	}
 }

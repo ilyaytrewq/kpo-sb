@@ -61,7 +61,7 @@ type TextChunk struct {
 // EmbedJSONRequestBody defines body for Embed for application/json ContentType.
 type EmbedJSONRequestBody = EmbedRequest
 
-// ServerInterface represents all server handlers.
+// ServerInterface represents all server handler.
 type ServerInterface interface {
 	// Generate embeddings for chunks
 	// (POST /embed)

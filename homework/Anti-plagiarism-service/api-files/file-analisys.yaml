@@ -7,7 +7,7 @@ info:
     name: MIT
     url: https://opensource.org/license/mit/
 servers:
-  - url: http://file-analisys:8080/api/v1
+  - url: http://file-analisys:8081/api/v1
     description: Internal file analysis service
 tags:
   - name: Analysis
@@ -62,7 +62,6 @@ paths:
                 accepted:
                   summary: Analysis queued
                   value:
-                    reportId: rep-001
                     submissionId: sub-001
                     workId: hw-kpo-3
                     status: QUEUED
@@ -129,7 +128,6 @@ paths:
                 completed_high_plagiarism:
                   summary: High plagiarism detected
                   value:
-                    reportId: rep-001
                     submissionId: sub-001
                     workId: hw-kpo-3
                     status: DONE
@@ -147,7 +145,6 @@ paths:
                 completed_low_similarity:
                   summary: No plagiarism detected
                   value:
-                    reportId: rep-002
                     submissionId: sub-002
                     workId: hw-kpo-3
                     status: DONE
@@ -159,7 +156,6 @@ paths:
                 processing:
                   summary: Analysis in progress
                   value:
-                    reportId: rep-003
                     submissionId: sub-003
                     workId: hw-kpo-3
                     status: PROCESSING
@@ -170,7 +166,6 @@ paths:
                 error:
                   summary: Analysis failed
                   value:
-                    reportId: rep-004
                     submissionId: sub-004
                     workId: hw-kpo-3
                     status: ERROR
@@ -217,15 +212,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkReportsResponse'
               example:
-                - reportId: rep-001
-                  submissionId: sub-001
+                - submissionId: sub-001
                   status: DONE
                   plagiarismDetected: true
                   similarityPercent: 78.5
                   createdAt: '2025-12-11T12:30:00Z'
                   completedAt: '2025-12-11T12:35:00Z'
-                - reportId: rep-002
-                  submissionId: sub-002
+                - submissionId: sub-002
                   status: DONE
                   plagiarismDetected: false
                   similarityPercent: 12.3
@@ -270,12 +263,8 @@ components:
 
     AnalyzeResponse:
       type: object
-      required: [reportId, submissionId, workId, status, queuedAt]
+      required: [submissionId, workId, status, queuedAt]
       properties:
-        reportId:
-          type: string
-          description: Unique report identifier
-          example: rep-001
         submissionId:
           type: string
           description: Submission identifier
@@ -301,12 +290,8 @@ components:
 
     ReportResponse:
       type: object
-      required: [reportId, submissionId, workId, status, plagiarismDetected, similarityPercent, createdAt]
+      required: [submissionId, workId, status, plagiarismDetected, similarityPercent, createdAt]
       properties:
-        reportId:
-          type: string
-          description: Unique report identifier
-          example: rep-001
         submissionId:
           type: string
           description: Submission identifier
@@ -361,7 +346,7 @@ components:
           example: sub-042
         similarityPercent:
           type: number
-          format: float
+          format: double
           description: Similarity percentage with this submission
           minimum: 0
           maximum: 100
@@ -374,11 +359,8 @@ components:
 
     WorkReportItem:
       type: object
-      required: [reportId, submissionId, status, plagiarismDetected, similarityPercent, createdAt]
+      required: [submissionId, status, plagiarismDetected, similarityPercent, createdAt]
       properties:
-        reportId:
-          type: string
-          example: rep-001
         submissionId:
           type: string
           example: sub-001

@@ -1,0 +1,9 @@
+services:
+  analysis_service:
+    build: .
+    ports:
+      - "8082:8082"
+    environment:
+      - HTTP_ADDR=:8082
+    env_file:
+      - ./internal/env-files/s3.env

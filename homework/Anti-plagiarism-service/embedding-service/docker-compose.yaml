@@ -1,0 +1,7 @@
+services:
+  analysis_service:
+    build: .
+    ports:
+      - "8083:8083"
+    env_file:
+      - ./internal/env-files/yandexCloud.env

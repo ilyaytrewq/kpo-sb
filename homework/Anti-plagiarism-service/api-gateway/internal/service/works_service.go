@@ -24,15 +24,14 @@ func (s *WorksService) CreateWork(ctx context.Context, name string, description 
 	}
 	desc := pgtype.Text{
 		String: *description,
-		Valid: true,
+		Valid:  true,
 	}
 	return s.q.CreateWork(ctx, dbgen.CreateWorkParams{
 		WorkID:      id,
-		Name:       name,
+		Name:        name,
 		Description: desc,
 	})
 }
-
 func (s *WorksService) GetWork(ctx context.Context, workID uuid.UUID) (dbgen.Work, error) {
 	id := pgtype.UUID{
 		Bytes: workID,

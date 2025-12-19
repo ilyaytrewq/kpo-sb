@@ -1,26 +1,26 @@
-package Handler
+package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/api/generated"
-	service "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/service"
-
-	filestoring "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/clients/filestoring"
 	fileanalysis "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/clients/fileanalysis"
-
+	filestoring "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/clients/filestoring"
 	config "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/config"
-
+	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/db"
+	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/store"
 )
 
 const (
 	maxLength = 64 << 20
 )
+
 /*
-// ServerInterface represents all server handlers.
+// ServerInterface represents all server handler.
 type ServerInterface interface {
 	// Get submission details
 	// (GET /submissions/{submissionId})
@@ -40,13 +40,14 @@ type ServerInterface interface {
 }
 */
 
-type Handler struct{
-	worksService *service.WorksService
-	fileStoringClient *filestoring.ClientWithResponses
+type Handler struct {
+	store              *store.Store
+	fileStoringClient  *filestoring.ClientWithResponses
 	fileAnalysisClient *fileanalysis.ClientWithResponses
 }
 
-func NewHadlers(worksSrrvice *service.WorksService) (*Handler, error) {
+func NewHandler() (*Handler, error) {
+	ctx := context.Background()
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
 	}
@@ -71,9 +72,25 @@ func NewHadlers(worksSrrvice *service.WorksService) (*Handler, error) {
 		return nil, fmt.Errorf("failed to create file analysis client: %w", err)
 	}
 
+	dsn, err := config.LoadGatewayDSNFromEnv()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load gateway db config: %w", err)
+	}
+
+	pool, err := db.NewPool(ctx, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to gateway db: %w", err)
+	}
+
+	gatewayStore := store.New(pool)
+	if err := gatewayStore.EnsureSchema(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to ensure gateway schema: %w", err)
+	}
+
 	return &Handler{
-		worksService: worksSrrvice,
-		fileStoringClient: fileStoringClient,
+		store:              gatewayStore,
+		fileStoringClient:  fileStoringClient,
 		fileAnalysisClient: fileAnalysisClient,
 	}, nil
 }

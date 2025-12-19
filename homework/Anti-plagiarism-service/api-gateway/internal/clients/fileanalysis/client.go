@@ -69,9 +69,6 @@ type AnalyzeResponse struct {
 	// QueuedAt Timestamp when queued
 	QueuedAt time.Time `json:"queuedAt"`
 
-	// ReportId Unique report identifier
-	ReportId string `json:"reportId"`
-
 	// Status Initial status
 	Status AnalyzeResponseStatus `json:"status"`
 
@@ -105,7 +102,7 @@ type MatchedSubmission struct {
 	MatchedChunks int `json:"matchedChunks"`
 
 	// SimilarityPercent Similarity percentage with this submission
-	SimilarityPercent float32 `json:"similarityPercent"`
+	SimilarityPercent float64 `json:"similarityPercent"`
 
 	// SubmissionId ID of matched submission
 	SubmissionId string `json:"submissionId"`
@@ -128,9 +125,6 @@ type ReportResponse struct {
 	// PlagiarismDetected True if similarityPercent > 50%
 	PlagiarismDetected bool `json:"plagiarismDetected"`
 
-	// ReportId Unique report identifier
-	ReportId string `json:"reportId"`
-
 	// SimilarityPercent Similarity percentage (0-100)
 	SimilarityPercent float32 `json:"similarityPercent"`
 
@@ -152,7 +146,6 @@ type WorkReportItem struct {
 	CompletedAt        *time.Time           `json:"completedAt,omitempty"`
 	CreatedAt          time.Time            `json:"createdAt"`
 	PlagiarismDetected bool                 `json:"plagiarismDetected"`
-	ReportId           string               `json:"reportId"`
 	SimilarityPercent  float32              `json:"similarityPercent"`
 	Status             WorkReportItemStatus `json:"status"`
 	SubmissionId       string               `json:"submissionId"`
@@ -390,7 +383,7 @@ func NewGetWorkReportsRequest(server string, workId string) (*http.Request, erro
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/reports/%s", pathParam0)
+	operationPath := fmt.Sprintf("/works/%s/reports", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}

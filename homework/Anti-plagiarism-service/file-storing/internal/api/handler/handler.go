@@ -2,15 +2,15 @@ package handler
 
 import (
 	"context"
-	"time"
 	"encoding/json"
 	"net/http"
+	"time"
 
-	service "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/service"
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/generated"
+	service "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/service"
 )
 
-// ServerInterface represents all server handlers.
+// ServerInterface represents all server handler.
 /*type ServerInterface interface {
 	// Upload a document file
 	// (POST /files/upload)
