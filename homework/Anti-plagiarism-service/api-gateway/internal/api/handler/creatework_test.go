@@ -14,11 +14,11 @@ import (
 )
 
 type fakeStore struct {
-	createWorkFn        func(ctx context.Context, workID, name, description string) (store.Work, error)
-	getWorkFn           func(ctx context.Context, workID string) (store.Work, error)
-	createSubmissionFn  func(ctx context.Context, submission store.Submission) error
-	getSubmissionFn     func(ctx context.Context, submissionID string) (store.Submission, error)
-	listSubmissionsFn   func(ctx context.Context, workID string) ([]store.Submission, error)
+	createWorkFn       func(ctx context.Context, workID, name, description string) (store.Work, error)
+	getWorkFn          func(ctx context.Context, workID string) (store.Work, error)
+	createSubmissionFn func(ctx context.Context, submission store.Submission) error
+	getSubmissionFn    func(ctx context.Context, submissionID string) (store.Submission, error)
+	listSubmissionsFn  func(ctx context.Context, workID string) ([]store.Submission, error)
 }
 
 func (f *fakeStore) CreateWork(ctx context.Context, workID, name, description string) (store.Work, error) {
@@ -47,10 +47,12 @@ func TestCreateWork_InvalidJSON(t *testing.T) {
 			t.Fatal("CreateWork should not be called on invalid JSON")
 			return store.Work{}, nil
 		},
-		getWorkFn:         func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
+		getWorkFn:          func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
 		createSubmissionFn: func(ctx context.Context, submission store.Submission) error { return nil },
-		getSubmissionFn:    func(ctx context.Context, submissionID string) (store.Submission, error) { return store.Submission{}, nil },
-		listSubmissionsFn:  func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
+		getSubmissionFn: func(ctx context.Context, submissionID string) (store.Submission, error) {
+			return store.Submission{}, nil
+		},
+		listSubmissionsFn: func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
 	}}
 
 	req := httptest.NewRequest(http.MethodPost, "/works", bytes.NewBufferString("{"))
@@ -77,10 +79,12 @@ func TestCreateWork_MissingFields(t *testing.T) {
 			t.Fatal("CreateWork should not be called when required fields missing")
 			return store.Work{}, nil
 		},
-		getWorkFn:         func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
+		getWorkFn:          func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
 		createSubmissionFn: func(ctx context.Context, submission store.Submission) error { return nil },
-		getSubmissionFn:    func(ctx context.Context, submissionID string) (store.Submission, error) { return store.Submission{}, nil },
-		listSubmissionsFn:  func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
+		getSubmissionFn: func(ctx context.Context, submissionID string) (store.Submission, error) {
+			return store.Submission{}, nil
+		},
+		listSubmissionsFn: func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
 	}}
 
 	req := httptest.NewRequest(http.MethodPost, "/works", bytes.NewBufferString(`{"workId":"","name":"","description":""}`))
@@ -98,10 +102,12 @@ func TestCreateWork_AlreadyExists(t *testing.T) {
 		createWorkFn: func(ctx context.Context, workID, name, description string) (store.Work, error) {
 			return store.Work{}, store.ErrWorkAlreadyExists
 		},
-		getWorkFn:         func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
+		getWorkFn:          func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
 		createSubmissionFn: func(ctx context.Context, submission store.Submission) error { return nil },
-		getSubmissionFn:    func(ctx context.Context, submissionID string) (store.Submission, error) { return store.Submission{}, nil },
-		listSubmissionsFn:  func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
+		getSubmissionFn: func(ctx context.Context, submissionID string) (store.Submission, error) {
+			return store.Submission{}, nil
+		},
+		listSubmissionsFn: func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
 	}}
 
 	req := httptest.NewRequest(http.MethodPost, "/works", bytes.NewBufferString(`{"workId":"hw-1","name":"HW","description":"Desc"}`))
@@ -132,10 +138,12 @@ func TestCreateWork_Success(t *testing.T) {
 				CreatedAt:   now,
 			}, nil
 		},
-		getWorkFn:         func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
+		getWorkFn:          func(ctx context.Context, workID string) (store.Work, error) { return store.Work{}, nil },
 		createSubmissionFn: func(ctx context.Context, submission store.Submission) error { return nil },
-		getSubmissionFn:    func(ctx context.Context, submissionID string) (store.Submission, error) { return store.Submission{}, nil },
-		listSubmissionsFn:  func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
+		getSubmissionFn: func(ctx context.Context, submissionID string) (store.Submission, error) {
+			return store.Submission{}, nil
+		},
+		listSubmissionsFn: func(ctx context.Context, workID string) ([]store.Submission, error) { return nil, nil },
 	}}
 
 	req := httptest.NewRequest(http.MethodPost, "/works", bytes.NewBufferString(`{"workId":"hw-1","name":"HW","description":"Desc"}`))

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/api/generated"
 	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/api/handler"
@@ -22,6 +23,18 @@ func main() {
 	apiHandler := api.Handler(h)
 
 	r := chi.NewRouter()
+
+	r := chi.NewRouter()
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{
+			"http://158.160.208.12:8088",
+			"http://localhost:8088",
+		},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
+		MaxAge:         300,
+	}))
 
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
