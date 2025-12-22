@@ -30,14 +30,5 @@ services:
       - PG_GATEWAY_PORT=5432
     depends_on:
       - postgres-gateway
-  swagger:
-    image: swaggerapi/swagger-ui
-    ports:
-      - "8088:8080"
-    environment:
-      - URL=../api-files/openapi.yaml
-    volumes:
-        - ./openapi.yaml:/usr/share/nginx/html/openapi.yaml:ro
-
 volumes:
   gateway_db_data:
