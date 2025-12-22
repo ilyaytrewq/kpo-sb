@@ -50,9 +50,10 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request, params api.
 
 	var reader io.Reader = file
 	fileID := uuid.New()
-	log.Printf("Uploading file: Bucket=%s, FileID=%s, WorkID=%s, OriginalFileName=%s, ContentType=%s, Size=%d", h.service.Config.Bucket, fileID.String(), uploadRequest.Metadata.WorkId, originalFileName, contentType, fileHeader.Size)
+	bucket := h.service.Bucket()
+	log.Printf("Uploading file: Bucket=%s, FileID=%s, WorkID=%s, OriginalFileName=%s, ContentType=%s, Size=%d", bucket, fileID.String(), uploadRequest.Metadata.WorkId, originalFileName, contentType, fileHeader.Size)
 
-	if err := h.service.Upload(r.Context(), h.service.Config.Bucket, fileID.String(), contentType, originalFileName, reader, fileHeader.Size); err != nil {
+	if err := h.service.Upload(r.Context(), bucket, fileID.String(), contentType, originalFileName, reader, fileHeader.Size); err != nil {
 		log.Printf("Failed to upload file: %v", err)
 		writeError(w, http.StatusInternalServerError, api.INTERNALERROR, "Failed to upload file")
 		return
