@@ -12,7 +12,7 @@ import (
 
 func (h *Handler) DownloadFile(w http.ResponseWriter, r *http.Request, fileId openapi_types.UUID, params api.DownloadFileParams) {
 	log.Printf("Downloading file with ID: %s", fileId.String())
-	fileReader, contentType, err := h.service.Download(r.Context(), h.service.Config.Bucket, fileId.String())
+	fileReader, contentType, err := h.service.Download(r.Context(), h.service.Bucket(), fileId.String())
 	if err != nil {
 		log.Printf("Failed to download file: %v", err)
 		writeError(w, http.StatusInternalServerError, api.INTERNALERROR, "Failed to download file")

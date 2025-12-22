@@ -1,0 +1,4 @@
+./closestfiles.go
+./downloadfile.go
+./getfileinfo.go
+./writeerror.go

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 
@@ -10,29 +11,19 @@ import (
 	service "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/service"
 )
 
-// ServerInterface represents all server handler.
-/*type ServerInterface interface {
-	// Upload a document file
-	// (POST /files/upload)
-	UploadFile(w http.ResponseWriter, r *http.Request, params UploadFileParams)
-	// Download a file
-	// (GET /files/{fileId})
-	DownloadFile(w http.ResponseWriter, r *http.Request, fileId openapi_types.UUID, params DownloadFileParams)
-	// Get file metadata
-	// (GET /files/{fileId}/info)
-	GetFileInfo(w http.ResponseWriter, r *http.Request, fileId openapi_types.UUID, params GetFileInfoParams)
-	// Health check
-	// (GET /health)
-	Health(w http.ResponseWriter, r *http.Request)
-}
-*/
-
 const (
-	maxFileSize = 8 << 20 // 64 MB
+	maxFileSize = 8 << 20
 )
 
 type Handler struct {
-	service *service.S3Service
+	service ObjectService
+}
+
+type ObjectService interface {
+	Upload(ctx context.Context, bucket, key, contentType, originalFileName string, body io.Reader, size int64) error
+	Download(ctx context.Context, bucket, key string) (io.ReadCloser, string, error)
+	Head(ctx context.Context, bucket, key string) (service.Info, error)
+	Bucket() string
 }
 
 func NewHandler() (*Handler, error) {

@@ -33,7 +33,7 @@ type Handler struct {
 	embeddingClient   *embedding.ClientWithResponses
 	fileStoringClient *filestoring.ClientWithResponses
 	qdrantClient      *qdrant.Client
-	reportStore       *reports.Store
+	reportStore       ReportStore
 }
 
 func NewHandler() (*Handler, error) {

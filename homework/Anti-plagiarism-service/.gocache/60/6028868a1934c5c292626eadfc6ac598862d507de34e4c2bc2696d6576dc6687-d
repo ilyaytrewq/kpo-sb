@@ -1,0 +1,3 @@
+./embed.go
+./handler.go
+./embed_test.go

@@ -13,34 +13,6 @@ import (
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/generated"
 )
 
-/*
- func (h *FileHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
-    // 1. Parse the multipart form (don't use json.Decode here!)
-    err := r.ParseMultipartForm(32 << 20) // 32MB max memory
-    if err != nil {
-        // Send BAD_REQUEST
-        return
-    }
-
-    // 2. Get the metadata part
-    metaPart := r.FormValue("metadata")
-    var metadata struct {
-        WorkId string `json:"workId"`
-        // ... other fields
-    }
-
-    // 3. ONLY decode the specific metadata string
-    if err := json.Unmarshal([]byte(metaPart), &metadata); err != nil {
-        // This is where a JSON error should be caught if the JSON itself is bad
-        return
-    }
-
-    // 4. Get the file part
-    file, header, err := r.FormFile("file")
-    // ... process file
-}
-*/
-
 func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request, params api.UploadFileParams) {
 	var uploadRequest api.UploadFileRequest
 	err := r.ParseMultipartForm(maxFileSize)

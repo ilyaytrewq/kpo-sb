@@ -1,15 +1,5 @@
 # Anti-Plagiarism Service
-
 Микросервисная система для проверки студенческих работ на плагиат с использованием векторных эмбеддингов.
-
-## ✅ Статус проекта
-
-**OpenAPI спецификации:** ✅ Обновлены (11 декабря 2025)  
-**Генерация кода:** ✅ Завершена  
-**Документация:** ✅ Создана  
-**Реализация:** 🚧 В процессе
-
-📋 **См. [CHECKLIST.md](./CHECKLIST.md)** для детального прогресса
 
 ## 🏗️ Архитектура
 
@@ -31,18 +21,15 @@ Client → API Gateway → File Storing (загрузка файла, получ
 Client ← API Gateway ← File Analysis (получение отчета)
 ```
 
-**Полная документация:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
-
 ## 🛠 Tech Stack
 
-- **Go 1.25+** — backend
-- **Chi** — HTTP router
-- **OpenAPI 3.0** — API specification
-- **oapi-codegen** — code generation from OpenAPI
-- **PostgreSQL + pgvector** — vector database
-- **OpenAI** — text-embedding-3-small (1536 dimensions)
-- **Docker** — containerization
-
+- **Go 1.25+** - backend
+- **Chi** - HTTP router
+- **OpenAPI 3.0** - API specification
+- **oapi-codegen** - code generation from OpenAPI
+- **PostgreSQL + pgvector** - vector database
+- **Yandex llm** - embedddings
+- **Yandex S3** - file storing
 ## 📁 Project Structure
 
 ```
@@ -86,7 +73,7 @@ Client ← API Gateway ← File Analysis (получение отчета)
 
 ## 🚀 Quick Start
 
-### 1. Регенерация кода (если изменили OpenAPI)
+### 1. Кодогенерация кода
 
 ```bash
 # Серверный код
@@ -137,46 +124,20 @@ npx @redocly/cli lint ./api-files/embedding-service.yaml
 ilyatikhonov@MacBook-Pro-Ilya api-gateway % sqlc generate
 ```
 
-### 2. Установка зависимостей
+### 2. Запуск сервисов (когда реализованы handlers)
+
 
 ```bash
-# Для каждого сервиса
-cd api-gateway && go mod tidy
-cd ../file-storing && go mod tidy
-cd ../file-analisys && go mod tidy
-cd ../embedding-service && go mod tidy
+# из корня репозитория
+bash ./run.sh
+
+# или по отдельности
+cd embedding-service && docker compose up -d
+cd ../file-storing && docker compose up -d
+cd ../file-analisys && docker compose up -d
+cd ../api-gateway && docker compose up -d
 ```
 
-### 3. Настройка PostgreSQL с pgvector
-
-```bash
-docker run -d --name anti-plagiarism-db \
-  -e POSTGRES_DB=anti_plagiarism \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=password \
-  -p 5432:5432 \
-  pgvector/pgvector:pg16
-```
-
-### 4. Запуск сервисов (когда реализованы handlers)
-
-```bash
-# В отдельных терминалах
-cd api-gateway && go run cmd/main.go
-cd file-storing && go run cmd/main.go
-cd file-analisys && go run cmd/main.go
-cd embedding-service && go run cmd/main.go
-```
-
-## 📖 Документация
-
-| Документ | Описание |
-|----------|----------|
-| [📋 CHECKLIST.md](./CHECKLIST.md) | Чеклист задач и прогресс |
-| [✅ OPENAPI_UPDATE_COMPLETE.md](./OPENAPI_UPDATE_COMPLETE.md) | Отчет об обновлении |
-| [🏗️ docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Полная архитектура системы |
-| [📝 docs/API_UPDATE_SUMMARY.md](./docs/API_UPDATE_SUMMARY.md) | Изменения в API |
-| [💻 docs/CLIENTS_USAGE.md](./docs/CLIENTS_USAGE.md) | Примеры использования клиентов |
 
 ## 🔌 API Endpoints
 
@@ -207,79 +168,31 @@ GET /submissions/{submissionId}
 GET /works/{workId}/stats
 ```
 
-### Ответ при загрузке submission:
+### Примеры запросов (curl)
 
-```json
-{
-  "submissionId": "sub-001",
-  "workId": "hw-kpo-3",
-  "studentId": "student-123",
-  "fileId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "status": "QUEUED",
-  "uploadedAt": "2025-12-11T12:30:00Z",
-  "message": "Submission accepted. Plagiarism check is queued."
-}
-```
+```bash
+BASE_URL="http://localhost:8080/api/v1"
 
-### Ответ с результатами проверки:
+# Проверка доступности API Gateway
+curl -s http://localhost:8080/health
 
-```json
-{
-  "submissionId": "sub-001",
-  "workId": "hw-kpo-3",
-  "studentId": "student-123",
-  "fileId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "status": "DONE",
-  "uploadedAt": "2025-12-11T12:30:00Z",
-  "report": {
-    "reportId": "rep-001",
-    "status": "DONE",
-    "plagiarismDetected": true,
-    "similarityPercent": 78.5,
-    "createdAt": "2025-12-11T12:30:00Z",
-    "completedAt": "2025-12-11T12:35:00Z",
-    "matchedSubmissions": [
-      {
-        "submissionId": "sub-042",
-        "studentId": "student-789",
-        "similarityPercent": 78.5,
-        "matchedChunks": 15
-      }
-    ]
-  }
-}
-```
+# Создать работу
+curl -X POST "$BASE_URL/works" \
+  -H "Content-Type: application/json" \
+  -d '{"workId":"hw-kpo-3","name":"KPO HW-3","description":"Anti-plagiarism homework"}'
 
-## 🎯 Ключевые особенности
+# Загрузить submission (multipart/form-data)
+curl -X POST "$BASE_URL/works/hw-kpo-3/submissions" \
+  -F "file=@/path/to/hw3.pdf"
 
-- **Изоляция по workId** — каждая работа имеет свою таблицу embeddings
-- **Асинхронная обработка** — клиент получает 202 Accepted и проверяет статус позже
-- **Chunking** — документы разбиваются на части для точности и обхода лимитов
-- **Векторный поиск** — cosine similarity для определения похожести
-- **Threshold 50%** — порог для определения плагиата
+# Получить отчеты по работе
+curl "$BASE_URL/works/hw-kpo-3/reports"
 
-## 🔧 Следующие шаги
+# Получить детали submission
+curl "$BASE_URL/submissions/sub-001"
 
-1. 📝 Реализовать handlers (см. [CHECKLIST.md](./CHECKLIST.md))
-2. 🗄️ Создать миграции баз данных
-3. 🧪 Написать тесты
-4. 🐳 Создать Docker образы
-5. 📊 Добавить мониторинг
-
-## 🤝 Contributing
-
-1. Изучите [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
-2. Посмотрите [CHECKLIST.md](./CHECKLIST.md) для списка задач
-3. Выберите задачу и создайте PR
-
-## 📄 License
-
-MIT
-
----
-
-**Дата последнего обновления:** 11 декабря 2025  
-**Статус:** OpenAPI спецификации готовы, начинаем реализацию
+# Статистика по работе
+curl "$BASE_URL/works/hw-kpo-3/stats"
 ```
 
 ## 📚 API Endpoints
@@ -291,4 +204,3 @@ MIT
 | GET    | `/works/{workId}/reports`       | Get analytics by workId      |
 | GET    | `/works/{workId}/stats`         | Get statistics by workId     |
 | GET    | `/submissions/{submissionId}`   | Get submission details       |
-

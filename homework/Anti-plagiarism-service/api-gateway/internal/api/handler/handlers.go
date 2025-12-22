@@ -41,9 +41,17 @@ type ServerInterface interface {
 */
 
 type Handler struct {
-	store              *store.Store
+	store              GatewayStore
 	fileStoringClient  *filestoring.ClientWithResponses
 	fileAnalysisClient *fileanalysis.ClientWithResponses
+}
+
+type GatewayStore interface {
+	CreateWork(ctx context.Context, workID, name, description string) (store.Work, error)
+	GetWork(ctx context.Context, workID string) (store.Work, error)
+	CreateSubmission(ctx context.Context, submission store.Submission) error
+	GetSubmission(ctx context.Context, submissionID string) (store.Submission, error)
+	ListSubmissionsByWork(ctx context.Context, workID string) ([]store.Submission, error)
 }
 
 func NewHandler() (*Handler, error) {

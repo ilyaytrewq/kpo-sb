@@ -24,6 +24,13 @@ type S3Service struct {
 	Config Config
 }
 
+func (s *S3Service) Bucket() string {
+	if s == nil {
+		return ""
+	}
+	return s.Config.Bucket
+}
+
 func NewService(ctx context.Context) (*S3Service, error) {
 	internalConfig, err := internal_config.LoadS3ConfigFromEnv()
 	if err != nil {
