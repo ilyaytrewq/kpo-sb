@@ -28,8 +28,8 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - EMBEDDING_BASE_URL=http://158.160.208.12/api/v1
-      - FILE_STORING_BASE_URL=http://158.160.208.12/api/v1
+      - EMBEDDING_BASE_URL=embedding-service
+      - FILE_STORING_BASE_URL=file-storing
       - PG_ANALYSIS_DB=${PG_ANALYSIS_DB:-analysis}
       - PG_ANALYSIS_USER=${PG_ANALYSIS_USER:-analysis}
       - PG_ANALYSIS_PASSWORD=${PG_ANALYSIS_PASSWORD:-analysis_pass}
