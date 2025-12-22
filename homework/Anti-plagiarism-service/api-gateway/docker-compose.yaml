@@ -18,9 +18,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - FILE_STORING_HOST=file-storing
+      - FILE_STORING_HOST=158.160.208.12
       - FILE_STORING_PORT=8082
-      - FILE_ANALYSIS_HOST=analysis_service
+      - FILE_ANALYSIS_HOST=158.160.208.12
       - FILE_ANALYSIS_PORT=8081
       - HTTP_ADDR=:8080
       - PG_GATEWAY_DB=${PG_GATEWAY_DB:-gateway}
