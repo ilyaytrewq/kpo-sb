@@ -1,3 +1,5 @@
+docker compose up --build -d
+
 cd embedding-service
 docker compose up --build -d
 
