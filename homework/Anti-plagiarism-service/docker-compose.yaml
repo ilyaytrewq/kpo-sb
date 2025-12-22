@@ -6,4 +6,4 @@ services:
     environment:
       - URL=/api-files/openapi.yaml
     volumes:
-      - ./openapi.yaml:/usr/share/nginx/html/openapi.yaml:ro
+      - ./api-files/openapi.yaml:/usr/share/nginx/html/api-files/openapi.yaml:ro
