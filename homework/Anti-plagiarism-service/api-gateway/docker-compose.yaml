@@ -19,9 +19,9 @@ services:
       - "8080:8080"
     environment:
       - HTTP_ADDR=:8080
-      - FILE_STORING_HOST=${FILE_STORING_HOST:-host.docker.internal}
+      - FILE_STORING_HOST=http:/158.160.208.12/api/v1
       - FILE_STORING_PORT=${FILE_STORING_PORT:-8082}
-      - FILE_ANALYSIS_HOST=${FILE_ANALYSIS_HOST:-host.docker.internal}
+      - FILE_ANALYSIS_HOST=http:/158.160.208.12/api/v1
       - FILE_ANALYSIS_PORT=${FILE_ANALYSIS_PORT:-8081}
       - PG_GATEWAY_DB=${PG_GATEWAY_DB:-gateway}
       - PG_GATEWAY_USER=${PG_GATEWAY_USER:-gateway}
