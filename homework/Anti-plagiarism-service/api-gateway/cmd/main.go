@@ -24,8 +24,6 @@ func main() {
 
 	r := chi.NewRouter()
 
-	r := chi.NewRouter()
-
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{
 			"http://158.160.208.12:8088",
