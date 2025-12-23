@@ -1,12 +1,11 @@
 package helpers
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
 
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/api/generated"
 )
-
 
 func WriteError(w http.ResponseWriter, status int, code api.ErrorCode, msg string) error {
 	w.Header().Set("Content-Type", "application/json")

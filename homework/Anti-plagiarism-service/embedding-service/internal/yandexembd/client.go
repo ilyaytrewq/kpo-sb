@@ -2,11 +2,10 @@ package yandexembd
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
-	"log"
-
 )
 
 type Client struct {
@@ -21,7 +20,7 @@ func NewClient() (*Client, error) {
 	if APIKey == "" {
 		return nil, fmt.Errorf("API_KEY environment variable is not set")
 	}
-	
+
 	FolderID := os.Getenv("FOLDER_ID")
 	if FolderID == "" {
 		return nil, fmt.Errorf("FOLDER_ID environment variable is not set")
@@ -38,7 +37,7 @@ func NewClient() (*Client, error) {
 		BaseURL:  BaseURL,
 		APIKey:   APIKey,
 		FolderID: FolderID,
-		HTTP:     &http.Client{
+		HTTP: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}, nil

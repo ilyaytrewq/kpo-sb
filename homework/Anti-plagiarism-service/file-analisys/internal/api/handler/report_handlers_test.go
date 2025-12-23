@@ -12,8 +12,8 @@ import (
 )
 
 type fakeReportStore struct {
-	saveReportFn     func(ctx context.Context, report api.ReportResponse, matches []api.MatchedSubmission) error
-	getReportFn      func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error)
+	saveReportFn      func(ctx context.Context, report api.ReportResponse, matches []api.MatchedSubmission) error
+	getReportFn       func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error)
 	listWorkReportsFn func(ctx context.Context, workID string) ([]api.WorkReportItem, error)
 }
 
@@ -109,7 +109,9 @@ func TestGetWorkReports_EmptyWorkID(t *testing.T) {
 			t.Fatal("ListWorkReports should not be called with empty workId")
 			return nil, nil
 		},
-		getReportFn: func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error) { return api.ReportResponse{}, false, nil },
+		getReportFn: func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error) {
+			return api.ReportResponse{}, false, nil
+		},
 	}}
 
 	req := httptest.NewRequest(http.MethodGet, "/works//reports", nil)
@@ -127,7 +129,9 @@ func TestGetWorkReports_NotFound(t *testing.T) {
 		listWorkReportsFn: func(ctx context.Context, workID string) ([]api.WorkReportItem, error) {
 			return []api.WorkReportItem{}, nil
 		},
-		getReportFn: func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error) { return api.ReportResponse{}, false, nil },
+		getReportFn: func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error) {
+			return api.ReportResponse{}, false, nil
+		},
 	}}
 
 	req := httptest.NewRequest(http.MethodGet, "/works/work-1/reports", nil)
@@ -154,7 +158,9 @@ func TestGetWorkReports_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		getReportFn: func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error) { return api.ReportResponse{}, false, nil },
+		getReportFn: func(ctx context.Context, submissionID string) (api.ReportResponse, bool, error) {
+			return api.ReportResponse{}, false, nil
+		},
 	}}
 
 	req := httptest.NewRequest(http.MethodGet, "/works/work-1/reports", nil)

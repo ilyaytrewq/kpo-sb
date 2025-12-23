@@ -1,14 +1,13 @@
 package handler
 
 import (
-	"net/http"
-	"log"
 	"io"
+	"log"
+	"net/http"
 
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-storing/internal/api/generated"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
-
 
 func (h *Handler) DownloadFile(w http.ResponseWriter, r *http.Request, fileId openapi_types.UUID, params api.DownloadFileParams) {
 	log.Printf("Downloading file with ID: %s", fileId.String())

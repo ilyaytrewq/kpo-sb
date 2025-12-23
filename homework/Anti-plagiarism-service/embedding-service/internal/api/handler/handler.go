@@ -14,7 +14,7 @@ const (
 )
 
 type handler struct {
-	model string
+	model  string
 	client *yandexembd.Client
 }
 
@@ -26,7 +26,6 @@ func NewHandler() (*handler, error) {
 	model := fmt.Sprintf("emb://%s/text-search-doc/latest", client.FolderID)
 	return &handler{model: model, client: client}, nil
 }
-
 
 func (h *handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)

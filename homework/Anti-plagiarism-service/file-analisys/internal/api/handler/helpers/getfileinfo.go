@@ -2,13 +2,13 @@ package helpers
 
 import (
 	"context"
-	"net/http"
 	"fmt"
+	"net/http"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/clients/filestoring"
 	api "github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/api/generated"
+	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/clients/filestoring"
 )
 
 func GetFileInfo(ctx context.Context, fileStoringClient *filestoring.ClientWithResponses, fileId openapi_types.UUID, w http.ResponseWriter) (*string, int64, *string, error) {

@@ -7,22 +7,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-
 /*
-type FileInfoResponse struct {
-    ChecksumSha256   *string            `json:"checksumSha256,omitempty"`
-    ContentType      *string            `json:"contentType,omitempty"`
-    FileId           openapi_types.UUID `json:"fileId"`
-    OriginalFileName *string            `json:"originalFileName,omitempty"`
-    SizeBytes        *int64             `json:"sizeBytes,omitempty"`
-    StoredAt         time.Time          `json:"storedAt"`
-}
+	type FileInfoResponse struct {
+	    ChecksumSha256   *string            `json:"checksumSha256,omitempty"`
+	    ContentType      *string            `json:"contentType,omitempty"`
+	    FileId           openapi_types.UUID `json:"fileId"`
+	    OriginalFileName *string            `json:"originalFileName,omitempty"`
+	    SizeBytes        *int64             `json:"sizeBytes,omitempty"`
+	    StoredAt         time.Time          `json:"storedAt"`
+	}
 */
 type Info struct {
-	Size         int64
-	ContentType  string
-	StoredAt time.Time
-	FileName    string
+	Size           int64
+	ContentType    string
+	StoredAt       time.Time
+	FileName       string
 	ChecksumSha256 string
 }
 

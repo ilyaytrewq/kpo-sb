@@ -16,7 +16,7 @@ type Config struct {
 	Region    string // "ru-central1"
 	AccessKey string // YC static key id
 	SecretKey string // YC static secret key
-	Bucket   string // "kpo-hw3"
+	Bucket    string // "kpo-hw3"
 }
 
 type S3Service struct {
@@ -41,7 +41,6 @@ func NewService(ctx context.Context) (*S3Service, error) {
 		ctx,
 		config.WithRegion(internalConfig.Region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(internalConfig.AccessKey, internalConfig.SecretKey, "")),
-		
 	)
 	if err != nil {
 		return nil, err
@@ -57,6 +56,6 @@ func NewService(ctx context.Context) (*S3Service, error) {
 		Region:    internalConfig.Region,
 		AccessKey: internalConfig.AccessKey,
 		SecretKey: internalConfig.SecretKey,
-		Bucket: internalConfig.Bucket,
+		Bucket:    internalConfig.Bucket,
 	}}, nil
 }
