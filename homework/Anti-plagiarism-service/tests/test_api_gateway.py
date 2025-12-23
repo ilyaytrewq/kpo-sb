@@ -134,7 +134,7 @@ class FullFileFlowTests(unittest.TestCase):
         rep2 = det2.get("report")
         self.assertIsNotNone(rep2)
 
-        sim = rep2.get("similarityPercent")
+        sim = rep2.get("similarityPercent")#
         self.assertIsNotNone(sim)
         self.assertGreaterEqual(float(sim), 0.0)
         self.assertLessEqual(float(sim), 100.0)
