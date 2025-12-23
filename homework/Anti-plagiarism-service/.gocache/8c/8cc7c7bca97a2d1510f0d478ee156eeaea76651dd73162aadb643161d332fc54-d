@@ -1,0 +1,8 @@
+./analizyfile.go
+./close.go
+./getreport.go
+./getworkreports.go
+./handler.go
+./interfaces.go
+./payload_test.go
+./report_handlers_test.go

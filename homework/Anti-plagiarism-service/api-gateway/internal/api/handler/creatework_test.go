@@ -13,7 +13,7 @@ import (
 	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/api-gateway/internal/store"
 )
 
-type fakeStore struct {
+type mockStore struct {
 	createWorkFn       func(ctx context.Context, workID, name, description string) (store.Work, error)
 	getWorkFn          func(ctx context.Context, workID string) (store.Work, error)
 	createSubmissionFn func(ctx context.Context, submission store.Submission) error
@@ -21,28 +21,28 @@ type fakeStore struct {
 	listSubmissionsFn  func(ctx context.Context, workID string) ([]store.Submission, error)
 }
 
-func (f *fakeStore) CreateWork(ctx context.Context, workID, name, description string) (store.Work, error) {
+func (f *mockStore) CreateWork(ctx context.Context, workID, name, description string) (store.Work, error) {
 	return f.createWorkFn(ctx, workID, name, description)
 }
 
-func (f *fakeStore) GetWork(ctx context.Context, workID string) (store.Work, error) {
+func (f *mockStore) GetWork(ctx context.Context, workID string) (store.Work, error) {
 	return f.getWorkFn(ctx, workID)
 }
 
-func (f *fakeStore) CreateSubmission(ctx context.Context, submission store.Submission) error {
+func (f *mockStore) CreateSubmission(ctx context.Context, submission store.Submission) error {
 	return f.createSubmissionFn(ctx, submission)
 }
 
-func (f *fakeStore) GetSubmission(ctx context.Context, submissionID string) (store.Submission, error) {
+func (f *mockStore) GetSubmission(ctx context.Context, submissionID string) (store.Submission, error) {
 	return f.getSubmissionFn(ctx, submissionID)
 }
 
-func (f *fakeStore) ListSubmissionsByWork(ctx context.Context, workID string) ([]store.Submission, error) {
+func (f *mockStore) ListSubmissionsByWork(ctx context.Context, workID string) ([]store.Submission, error) {
 	return f.listSubmissionsFn(ctx, workID)
 }
 
 func TestCreateWork_InvalidJSON(t *testing.T) {
-	h := &Handler{store: &fakeStore{
+	h := &Handler{store: &mockStore{
 		createWorkFn: func(ctx context.Context, workID, name, description string) (store.Work, error) {
 			t.Fatal("CreateWork should not be called on invalid JSON")
 			return store.Work{}, nil
@@ -74,7 +74,7 @@ func TestCreateWork_InvalidJSON(t *testing.T) {
 }
 
 func TestCreateWork_MissingFields(t *testing.T) {
-	h := &Handler{store: &fakeStore{
+	h := &Handler{store: &mockStore{
 		createWorkFn: func(ctx context.Context, workID, name, description string) (store.Work, error) {
 			t.Fatal("CreateWork should not be called when required fields missing")
 			return store.Work{}, nil
@@ -98,7 +98,7 @@ func TestCreateWork_MissingFields(t *testing.T) {
 }
 
 func TestCreateWork_AlreadyExists(t *testing.T) {
-	h := &Handler{store: &fakeStore{
+	h := &Handler{store: &mockStore{
 		createWorkFn: func(ctx context.Context, workID, name, description string) (store.Work, error) {
 			return store.Work{}, store.ErrWorkAlreadyExists
 		},
@@ -129,7 +129,7 @@ func TestCreateWork_AlreadyExists(t *testing.T) {
 
 func TestCreateWork_Success(t *testing.T) {
 	now := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
-	h := &Handler{store: &fakeStore{
+	h := &Handler{store: &mockStore{
 		createWorkFn: func(ctx context.Context, workID, name, description string) (store.Work, error) {
 			return store.Work{
 				WorkID:      workID,

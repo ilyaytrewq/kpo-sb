@@ -9,6 +9,7 @@ import (
 
 	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/clients/embedding"
 	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/clients/filestoring"
+	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/filequeue"
 	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/qdrant"
 	"github.com/ilyaytrewq/kpo-sb/anti-plagiarism-service/file-analisys/internal/reports"
 )
@@ -34,6 +35,7 @@ type Handler struct {
 	fileStoringClient *filestoring.ClientWithResponses
 	qdrantClient      *qdrant.Client
 	reportStore       ReportStore
+	queue             *filequeue.Queue
 }
 
 func NewHandler() (*Handler, error) {
@@ -69,12 +71,14 @@ func NewHandler() (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	queue := filequeue.NewQueue(filequeue.LoadConfigFromEnv())
 
 	return &Handler{
 		embeddingClient:   embeddingClient,
 		fileStoringClient: fileStoringClient,
 		qdrantClient:      qdrantClient,
 		reportStore:       reportStore,
+		queue:             queue,
 	}, nil
 }
 

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -37,6 +40,9 @@ func main() {
 	addr := getEnv("HTTP_ADDR", ":8081")
 	log.Printf("starting server on %s", addr)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      r,
@@ -45,9 +51,23 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Printf("server error: %v", err)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("server error: %v", err)
+			stop()
+		}
+	}()
+
+	<-ctx.Done()
+	log.Printf("shutdown signal received")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("server shutdown error: %v", err)
 	}
+	h.Close()
 }
 
 func accessLog(next http.Handler) http.Handler {
