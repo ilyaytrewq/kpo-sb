@@ -86,7 +86,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # base64 чтобы безопасно передать многострочные env
           S3_B64="$(printf "%s" "${S3_ENV:-}" | base64 -w0)"
           YC_B64="$(printf "%s" "${YANDEX_CLOUD_ENV:-}" | base64 -w0)"
 
@@ -95,7 +94,6 @@ jobs:
 
           cd "$REMOTE_DIR/repo/$BASE"
 
-          # Если секреты заданы — создаём env-файлы на сервере (иначе используем то, что в репо)
           if [ -n "${S3_B64:-}" ]; then
             mkdir -p file-storing/internal/env-files
             printf "%s" "$S3_B64" | base64 -d > file-storing/internal/env-files/s3.env
@@ -106,8 +104,6 @@ jobs:
             printf "%s" "$YC_B64" | base64 -d > embedding-service/internal/env-files/yandexCloud.env
           fi
 
-          # Перезапуск сервисов (каждый со своим docker-compose.yaml)
-          # swagger (если нужен)
           if [ -f docker-compose.yaml ]; then
             docker compose up -d --build
           fi
@@ -117,6 +113,5 @@ jobs:
           (cd file-analisys && docker compose up -d --build)
           (cd api-gateway && docker compose up -d --build)
 
-          # лёгкая уборка
           docker image prune -f >/dev/null 2>&1 || true
-SCRIPT
+          SCRIPT
