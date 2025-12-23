@@ -9,7 +9,7 @@ on:
 jobs:
   go-unit:
     name: Go unit tests (${{ matrix.module }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -22,28 +22,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Detect project base dir
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANDIDATES=(
+            "homework/Anti-plagiarism-service"
+            "homework/anti-plagiarism-service"
+            "Anti-plagiarism-service"
+            "anti-plagiarism-service"
+            "."
+          )
+          for base in "${CANDIDATES[@]}"; do
+            if [ -f "$base/api-gateway/go.mod" ]; then
+              echo "base=$base" >> "$GITHUB_OUTPUT"
+              echo "Detected base dir: $base"
+              exit 0
+            fi
+          done
+          echo "Cannot detect project base dir (api-gateway/go.mod not found)."
+          ls -la
+          find . -maxdepth 4 -type f -name "go.mod" -print
+          exit 1
+
       - uses: actions/setup-go@v6
         with:
-          go-version-file: ${{ matrix.module }}/go.mod
+          go-version-file: ${{ steps.detect.outputs.base }}/${{ matrix.module }}/go.mod
           cache: true
-          cache-dependency-path: ${{ matrix.module }}/go.sum
+          cache-dependency-path: ${{ steps.detect.outputs.base }}/${{ matrix.module }}/go.sum
 
       - name: gofmt (check)
-        working-directory: ${{ matrix.module }}
+        working-directory: ${{ steps.detect.outputs.base }}/${{ matrix.module }}
         run: |
           test -z "$(gofmt -l .)"
 
       - name: go vet
-        working-directory: ${{ matrix.module }}
+        working-directory: ${{ steps.detect.outputs.base }}/${{ matrix.module }}
         run: go vet ./...
 
       - name: go test
-        working-directory: ${{ matrix.module }}
+        working-directory: ${{ steps.detect.outputs.base }}/${{ matrix.module }}
         run: go test ./... -count=1 -timeout=5m
 
   integration-api-gateway:
-    name: Integration tests (API Gateway)
-    runs-on: ubuntu-latest
+    name: Integration tests (API Gateway + Python)
+    runs-on: ubuntu-22.04
     needs: [go-unit]
 
     services:
@@ -59,45 +83,86 @@ jobs:
           --health-cmd "pg_isready -U gateway -d gateway"
           --health-interval 5s
           --health-timeout 5s
-          --health-retries 20
+          --health-retries 30
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Detect project base dir
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANDIDATES=(
+            "homework/Anti-plagiarism-service"
+            "homework/anti-plagiarism-service"
+            "Anti-plagiarism-service"
+            "anti-plagiarism-service"
+            "."
+          )
+          for base in "${CANDIDATES[@]}"; do
+            if [ -f "$base/api-gateway/go.mod" ]; then
+              echo "base=$base" >> "$GITHUB_OUTPUT"
+              echo "Detected base dir: $base"
+              exit 0
+            fi
+          done
+          echo "Cannot detect project base dir (api-gateway/go.mod not found)."
+          ls -la
+          find . -maxdepth 4 -type f -name "go.mod" -print
+          exit 1
+
       - uses: actions/setup-go@v6
         with:
-          go-version-file: api-gateway/go.mod
+          go-version-file: ${{ steps.detect.outputs.base }}/api-gateway/go.mod
           cache: true
-          cache-dependency-path: api-gateway/go.sum
+          cache-dependency-path: ${{ steps.detect.outputs.base }}/api-gateway/go.sum
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - name: Install Postgres client (psql)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply DB migrations (api-gateway)
+        env:
+          PGPASSWORD: gateway_pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ steps.detect.outputs.base }}"
+          for f in $(ls "$BASE/api-gateway/migrations/"*.up.sql | sort); do
+            echo "Applying $f"
+            psql -h 127.0.0.1 -U gateway -d gateway -f "$f"
+          done
+
       - name: Start API Gateway + run python tests
         env:
           API_GATEWAY_URL: http://localhost:8080
+          PGPASSWORD: gateway_pass
+        shell: bash
         run: |
           set -euo pipefail
+          BASE="${{ steps.detect.outputs.base }}"
 
-          # wait postgres port
-          for i in $(seq 1 30); do
-            (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1 && break
-            sleep 1
-          done
-
-          # start api-gateway
-          cd api-gateway
+          # start api-gateway (ему обязательно нужны эти env, иначе он не поднимется)
           export HTTP_ADDR=:8080
           export FILE_STORING_HOST=127.0.0.1
-          export FILE_STORING_PORT=8081
+          export FILE_STORING_PORT=9999
           export FILE_ANALYSIS_HOST=127.0.0.1
-          export FILE_ANALYSIS_PORT=8082
-          export GATEWAY_DATABASE_URL="postgres://gateway:gateway_pass@127.0.0.1:5432/gateway?sslmode=disable"
+          export FILE_ANALYSIS_PORT=9998
 
-          go run ./cmd/main.go > ../api-gateway.log 2>&1 &
+          export PG_GATEWAY_HOST=127.0.0.1
+          export PG_GATEWAY_PORT=5432
+          export PG_GATEWAY_DB=gateway
+          export PG_GATEWAY_USER=gateway
+          export PG_GATEWAY_PASSWORD=gateway_pass
+
+          (cd "$BASE/api-gateway" && go run ./cmd/main.go) > api-gateway.log 2>&1 &
           PID=$!
-          cd ..
 
           cleanup() { kill "$PID" >/dev/null 2>&1 || true; }
           trap cleanup EXIT
@@ -116,5 +181,5 @@ jobs:
             exit 1
           fi
 
-          # run ALL python tests from ./tests
-          python -m unittest -v discover -s tests -p "test_*.py" || (tail -n 200 api-gateway.log; exit 1)
+          # run ALL python tests
+          python -m unittest -v discover -s "$BASE/tests" -p "test_*.py" || (tail -n 200 api-gateway.log; exit 1)
