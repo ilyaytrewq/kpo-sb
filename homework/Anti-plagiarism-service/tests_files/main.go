@@ -181,7 +181,7 @@ func main() {
 				if l&1 == 1 {
 					q1l, q2l = q2l, q1l
 					q1r, q2r = q2r, q1r
-				}
+				} //
 
 				a, b := split(even, q1r)
 				c, d := split(a, q1l)
