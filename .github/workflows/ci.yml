@@ -117,6 +117,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run python tests
+      - name: E2E against server (full flow)
         run: |
-          python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
+          RUN_FULL_FLOW=1 API_GATEWAY_URL="http://158.160.208.12:8080" \
+            python -m unittest discover -s "homework/Anti-plagiarism-service/tests" -p "test_*.py" -v
