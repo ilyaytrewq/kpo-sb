@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "dev/hw3"]
+  pull_request:
+    branches: ["main", "dev/hw3"]
+
+jobs:
+  go-unit:
+    name: Go unit tests (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - api-gateway
+          - file-storing
+          - file-analisys
+          - embedding-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: gofmt (check)
+        working-directory: ${{ matrix.module }}
+        run: |
+          test -z "$(gofmt -l .)"
+
+      - name: go vet
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
+
+      - name: go test
+        working-directory: ${{ matrix.module }}
+        run: go test ./... -count=1 -timeout=5m
+
+  integration-api-gateway:
+    name: Integration tests (API Gateway)
+    runs-on: ubuntu-latest
+    needs: [go-unit]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: gateway
+          POSTGRES_USER: gateway
+          POSTGRES_PASSWORD: gateway_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gateway -d gateway"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: api-gateway/go.mod
+          cache: true
+          cache-dependency-path: api-gateway/go.sum
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Start API Gateway + run python tests
+        env:
+          API_GATEWAY_URL: http://localhost:8080
+        run: |
+          set -euo pipefail
+
+          # wait postgres port
+          for i in $(seq 1 30); do
+            (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+          # start api-gateway
+          cd api-gateway
+          export HTTP_ADDR=:8080
+          export FILE_STORING_HOST=127.0.0.1
+          export FILE_STORING_PORT=8081
+          export FILE_ANALYSIS_HOST=127.0.0.1
+          export FILE_ANALYSIS_PORT=8082
+          export GATEWAY_DATABASE_URL="postgres://gateway:gateway_pass@127.0.0.1:5432/gateway?sslmode=disable"
+
+          go run ./cmd/main.go > ../api-gateway.log 2>&1 &
+          PID=$!
+          cd ..
+
+          cleanup() { kill "$PID" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          # wait health
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if ! curl -fsS http://localhost:8080/health >/dev/null; then
+            echo "API gateway didn't start"
+            tail -n 200 api-gateway.log || true
+            exit 1
+          fi
+
+          # run ALL python tests from ./tests
+          python -m unittest -v discover -s tests -p "test_*.py" || (tail -n 200 api-gateway.log; exit 1)
