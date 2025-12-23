@@ -93,7 +93,6 @@ class FullFileFlowTests(unittest.TestCase):
     def test_full_cycle_two_submissions(self):
         work_id = f"e2e-{uuid.uuid4().hex}"
 
-        # 1) create work
         status, body = _request_json(
             "POST",
             f"{API_V1_URL}/works",
