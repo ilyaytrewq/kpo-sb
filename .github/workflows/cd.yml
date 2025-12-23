@@ -1,0 +1,122 @@
+name: CD (Deploy to Yandex VPS)
+
+on:
+  push:
+    branches: ["main", "dev/hw3"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect project base dir
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib, os
+          root = pathlib.Path(".").resolve()
+
+          # ищем базу проекта по маркеру api-gateway/docker-compose.yaml
+          base = None
+          for p in root.rglob("api-gateway/docker-compose.yaml"):
+            if ".git" in p.parts:
+              continue
+            base = p.parent.parent
+            break
+
+          if base is None:
+            raise SystemExit("Cannot find api-gateway/docker-compose.yaml in repo")
+
+          rel = str(base.relative_to(root))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"base={rel}\n")
+          print("Detected base:", rel)
+          PY
+
+      - name: Prepare SSH
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf "%s" "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Rsync code to server
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+          # Разные директории под main и dev/hw3, чтобы не затирать прод
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            REMOTE_DIR="/opt/anti-plagiarism/prod"
+          else
+            REMOTE_DIR="/opt/anti-plagiarism/dev"
+          fi
+
+          echo "REMOTE_DIR=$REMOTE_DIR" >> $GITHUB_ENV
+
+          rsync -az --delete \
+            --exclude ".git" \
+            --exclude ".DS_Store" \
+            --exclude "__MACOSX" \
+            "./" "${USER}@${HOST}:${REMOTE_DIR}/repo"
+
+      - name: Deploy (docker compose up)
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          BASE: ${{ steps.detect.outputs.base }}
+          S3_ENV: ${{ secrets.S3_ENV }}
+          YANDEX_CLOUD_ENV: ${{ secrets.YANDEX_CLOUD_ENV }}
+        run: |
+          set -euo pipefail
+
+          # base64 чтобы безопасно передать многострочные env
+          S3_B64="$(printf "%s" "${S3_ENV:-}" | base64 -w0)"
+          YC_B64="$(printf "%s" "${YANDEX_CLOUD_ENV:-}" | base64 -w0)"
+
+          ssh "${USER}@${HOST}" "REMOTE_DIR='${REMOTE_DIR}' BASE='${BASE}' S3_B64='${S3_B64}' YC_B64='${YC_B64}' bash -s" <<'SCRIPT'
+          set -euo pipefail
+
+          cd "$REMOTE_DIR/repo/$BASE"
+
+          # Если секреты заданы — создаём env-файлы на сервере (иначе используем то, что в репо)
+          if [ -n "${S3_B64:-}" ]; then
+            mkdir -p file-storing/internal/env-files
+            printf "%s" "$S3_B64" | base64 -d > file-storing/internal/env-files/s3.env
+          fi
+
+          if [ -n "${YC_B64:-}" ]; then
+            mkdir -p embedding-service/internal/env-files
+            printf "%s" "$YC_B64" | base64 -d > embedding-service/internal/env-files/yandexCloud.env
+          fi
+
+          # Перезапуск сервисов (каждый со своим docker-compose.yaml)
+          # swagger (если нужен)
+          if [ -f docker-compose.yaml ]; then
+            docker compose up -d --build
+          fi
+
+          (cd embedding-service && docker compose up -d --build)
+          (cd file-storing && docker compose up -d --build)
+          (cd file-analisys && docker compose up -d --build)
+          (cd api-gateway && docker compose up -d --build)
+
+          # лёгкая уборка
+          docker image prune -f >/dev/null 2>&1 || true
+SCRIPT
