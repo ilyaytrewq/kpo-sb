@@ -44,6 +44,7 @@ type Handler struct {
 	store              GatewayStore
 	fileStoringClient  *filestoring.ClientWithResponses
 	fileAnalysisClient *fileanalysis.ClientWithResponses
+	httpClient         *http.Client
 }
 
 type GatewayStore interface {
@@ -100,6 +101,7 @@ func NewHandler() (*Handler, error) {
 		store:              gatewayStore,
 		fileStoringClient:  fileStoringClient,
 		fileAnalysisClient: fileAnalysisClient,
+		httpClient:         httpClient,
 	}, nil
 }
 

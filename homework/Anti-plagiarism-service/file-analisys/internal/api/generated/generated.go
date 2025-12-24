@@ -155,7 +155,7 @@ type WorkReportsResponse = []WorkReportItem
 // AnalyzeFileJSONRequestBody defines body for AnalyzeFile for application/json ContentType.
 type AnalyzeFileJSONRequestBody = AnalyzeRequest
 
-// ServerInterface represents all server handler.
+// ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Start plagiarism analysis for a file
 	// (POST /analyze)

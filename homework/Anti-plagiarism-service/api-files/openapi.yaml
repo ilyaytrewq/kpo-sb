@@ -10,32 +10,33 @@ info:
 servers:
   - url: http://158.160.186.61:8080/api/v1
     description: Public
-
 tags:
-- name: Works
-  description: Operations for managing works/assignments.
-- name: Submissions
-  description: Upload and fetch submissions.
-- name: Reports
-  description: Access plagiarism reports and analytics.
-- name: Stats
-  description: Aggregated statistics for a work.
+  - name: Works
+    description: Operations for managing works/assignments.
+  - name: Submissions
+    description: Upload and fetch submissions.
+  - name: Reports
+    description: Access plagiarism reports and analytics.
+  - name: Stats
+    description: Aggregated statistics for a work.
+  - name: Visualization
+    description: Visualization utilities for submissions and documents.
 paths:
   /works:
     post:
       tags:
-      - Works
+        - Works
       summary: Create a work
       description: Create a new work (assignment) with the specified workId.
       x-codeSamples:
-      - lang: cURL
-        label: Create homework
-        source: "curl -X POST http://localhost:8080/works \\\n  -H \"Content-Type:\
+        - lang: cURL
+          label: Create homework
+          source: "curl -X POST http://localhost:8080/works \\\n  -H \"Content-Type:\
           \ application/json\" \\\n  -d '{\"workId\":\"hw-kpo-3\",\"name\":\"KPO HW-3\"\
           ,\"description\":\"Homework assignment for KPO course\"}'\n"
-      - lang: cURL
-        label: Create lab
-        source: "curl -X POST http://localhost:8080/works \\\n  -H \"Content-Type:\
+        - lang: cURL
+          label: Create lab
+          source: "curl -X POST http://localhost:8080/works \\\n  -H \"Content-Type:\
           \ application/json\" \\\n  -d '{\"workId\":\"lab-ml-1\",\"name\":\"ML Lab\
           \ #1\",\"description\":\"Intro to plagiarism detection lab\"}'\n"
       requestBody:
@@ -110,28 +111,28 @@ paths:
   /works/{workId}/submissions:
     post:
       tags:
-      - Submissions
+        - Submissions
       summary: Submit work for review
       description: "Student uploads a work file for the specified assignment (workId).\n\
         Pipeline: API Gateway uploads file to file-storing → gets fileId → \nsends\
         \ fileId to file-analysis for plagiarism check.\n"
       x-codeSamples:
-      - lang: cURL
-        label: Upload PDF
-        source: "curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \\\n\
+        - lang: cURL
+          label: Upload PDF
+          source: "curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \\\n\
           \  -F \"file=@hw3.pdf\" \\\n"
-      - lang: cURL
-        label: Upload DOCX
-        source: "curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \\\n\
+        - lang: cURL
+          label: Upload DOCX
+          source: "curl -X POST http://localhost:8080/works/hw-kpo-3/submissions \\\n\
           \  -F \"file=@hw3.docx\" \\\n"
       parameters:
-      - name: workId
-        in: path
-        required: true
-        description: Work/assignment identifier
-        schema:
-          type: string
-        example: hw-kpo-3
+        - name: workId
+          in: path
+          required: true
+          description: Work/assignment identifier
+          schema:
+            type: string
+          example: hw-kpo-3
       requestBody:
         required: true
         content:
@@ -197,24 +198,24 @@ paths:
   /works/{workId}/reports:
     get:
       tags:
-      - Reports
+        - Reports
       summary: Get analytics by workId
       description: Get a list of reports/analytics for all submissions associated
         with the given workId.
       x-codeSamples:
-      - lang: cURL
-        label: Fetch reports
-        source: 'curl http://localhost:8080/works/hw-kpo-3/reports
+        - lang: cURL
+          label: Fetch reports
+          source: 'curl http://localhost:8080/works/hw-kpo-3/reports
 
           '
       parameters:
-      - name: workId
-        in: path
-        required: true
-        description: Work identifier
-        schema:
-          type: string
-        example: hw-kpo-3
+        - name: workId
+          in: path
+          required: true
+          description: Work identifier
+          schema:
+            type: string
+          example: hw-kpo-3
       responses:
         '200':
           description: List of reports for the work
@@ -226,33 +227,33 @@ paths:
                 mixedStatuses:
                   summary: Mixed DONE and PROCESSING reports
                   value:
-                  - reportId: rep-001
-                    submissionId: sub-001
-                    status: DONE
-                    plagiarismDetected: true
-                    similarityPercent: 45.5
-                    createdAt: '2025-11-26T13:00:00Z'
-                  - reportId: rep-002
-                    submissionId: sub-002
-                    status: PROCESSING
-                    plagiarismDetected: false
-                    similarityPercent: 0
-                    createdAt: '2025-11-26T13:05:00Z'
+                    - reportId: rep-001
+                      submissionId: sub-001
+                      status: DONE
+                      plagiarismDetected: true
+                      similarityPercent: 45.5
+                      createdAt: '2025-11-26T13:00:00Z'
+                    - reportId: rep-002
+                      submissionId: sub-002
+                      status: PROCESSING
+                      plagiarismDetected: false
+                      similarityPercent: 0
+                      createdAt: '2025-11-26T13:05:00Z'
                 allClean:
                   summary: Reports without detected plagiarism
                   value:
-                  - reportId: rep-010
-                    submissionId: sub-010
-                    status: DONE
-                    plagiarismDetected: false
-                    similarityPercent: 3.4
-                    createdAt: '2025-11-27T09:15:00Z'
-                  - reportId: rep-011
-                    submissionId: sub-011
-                    status: DONE
-                    plagiarismDetected: false
-                    similarityPercent: 1.1
-                    createdAt: '2025-11-27T09:20:00Z'
+                    - reportId: rep-010
+                      submissionId: sub-010
+                      status: DONE
+                      plagiarismDetected: false
+                      similarityPercent: 3.4
+                      createdAt: '2025-11-27T09:15:00Z'
+                    - reportId: rep-011
+                      submissionId: sub-011
+                      status: DONE
+                      plagiarismDetected: false
+                      similarityPercent: 1.1
+                      createdAt: '2025-11-27T09:20:00Z'
         '404':
           description: Work not found
           content:
@@ -275,23 +276,23 @@ paths:
   /submissions/{submissionId}:
     get:
       tags:
-      - Submissions
+        - Submissions
       summary: Get submission details
       description: Get detailed information about a specific work submission.
       x-codeSamples:
-      - lang: cURL
-        label: Fetch submission
-        source: 'curl http://localhost:8080/submissions/sub-001
+        - lang: cURL
+          label: Fetch submission
+          source: 'curl http://localhost:8080/submissions/sub-001
 
           '
       parameters:
-      - name: submissionId
-        in: path
-        required: true
-        description: Submission identifier
-        schema:
-          type: string
-        example: sub-001
+        - name: submissionId
+          in: path
+          required: true
+          description: Submission identifier
+          schema:
+            type: string
+          example: sub-001
       responses:
         '200':
           description: Submission details
@@ -313,9 +314,9 @@ paths:
                       plagiarismDetected: true
                       similarityPercent: 45.5
                       matchedSubmissions:
-                      - submissionId: sub-0002
-                        matchedChunks: 12
-                        similarityPercent: 78.0
+                        - submissionId: sub-0002
+                          matchedChunks: 12
+                          similarityPercent: 78.0
                       reportId: rep-001
                       createdAt: '2025-11-26T12:35:00Z'
                 pending:
@@ -348,23 +349,23 @@ paths:
   /works/{workId}/stats:
     get:
       tags:
-      - Stats
+        - Stats
       summary: Get statistics by workId
       description: Return aggregated statistics for the work.
       x-codeSamples:
-      - lang: cURL
-        label: Fetch statistics
-        source: 'curl http://localhost:8080/works/hw-kpo-3/stats
+        - lang: cURL
+          label: Fetch statistics
+          source: 'curl http://localhost:8080/works/hw-kpo-3/stats
 
           '
       parameters:
-      - name: workId
-        in: path
-        required: true
-        description: Work identifier
-        schema:
-          type: string
-        example: hw-kpo-3
+        - name: workId
+          in: path
+          required: true
+          description: Work identifier
+          schema:
+            type: string
+          example: hw-kpo-3
       responses:
         '200':
           description: Work statistics
@@ -410,19 +411,145 @@ paths:
                 code: INTERNAL_ERROR
                 message: Unexpected server error
       operationId: getWorkStats
+  /wordcloud:
+    post:
+      tags:
+        - Visualization
+      summary: Build a word cloud from an uploaded document
+      description: 'Upload a document (PDF, DOCX, TXT, RTF, ODT). The API Gateway
+        extracts plain text, calls the QuickChart Word Cloud API, and returns the
+        generated image.
+
+
+        You can use this endpoint URL directly as an <img src="..."> in the frontend.'
+      parameters:
+        - name: format
+          in: query
+          required: false
+          description: Output image format.
+          schema:
+            type: string
+            enum:
+              - png
+              - svg
+            default: png
+        - name: width
+          in: query
+          required: false
+          description: Image width in pixels.
+          schema:
+            type: integer
+            minimum: 100
+            maximum: 4000
+            default: 1000
+        - name: height
+          in: query
+          required: false
+          description: Image height in pixels.
+          schema:
+            type: integer
+            minimum: 100
+            maximum: 4000
+            default: 1000
+        - name: removeStopwords
+          in: query
+          required: false
+          description: Remove common stopwords (language-dependent).
+          schema:
+            type: boolean
+            default: true
+        - name: language
+          in: query
+          required: false
+          description: Stopwords language (QuickChart).
+          schema:
+            type: string
+            default: ru
+        - name: minWordLength
+          in: query
+          required: false
+          description: Minimum word length to include.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 4
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WordCloudBuildRequest'
+            examples:
+              pdf:
+                summary: Upload a PDF to build a PNG word cloud
+                value:
+                  file: '@/home/user/documents/hw3.pdf'
+              docx:
+                summary: Upload a DOCX to build an SVG word cloud
+                value:
+                  file: '@/home/user/documents/hw3.docx'
+      responses:
+        '200':
+          description: Word cloud image (binary).
+          content:
+            image/png:
+              schema:
+                $ref: '#/components/schemas/WordCloudImage'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/WordCloudImage'
+        '400':
+          description: Invalid request (e.g., missing file, invalid params).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: VALIDATION_ERROR
+                message: file is required
+        '422':
+          description: Unprocessable content (e.g., cannot extract text or extracted
+            text is empty).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: VALIDATION_ERROR
+                message: cannot extract text from document
+        '502':
+          description: Upstream error from external word cloud service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: INTERNAL_ERROR
+                message: quickchart error
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+      operationId: buildWordCloud
 components:
   schemas:
     ErrorCode:
       type: string
       enum:
-      - VALIDATION_ERROR
-      - WORK_ALREADY_EXISTS
-      - WORK_NOT_FOUND
-      - SUBMISSION_NOT_FOUND
-      - REPORT_NOT_FOUND
-      - INTERNAL_ERROR
-      - UNAUTHORIZED
-      - FORBIDDEN
+        - VALIDATION_ERROR
+        - WORK_ALREADY_EXISTS
+        - WORK_NOT_FOUND
+        - SUBMISSION_NOT_FOUND
+        - REPORT_NOT_FOUND
+        - INTERNAL_ERROR
+        - UNAUTHORIZED
+        - FORBIDDEN
     ErrorDetail:
       type: object
       properties:
@@ -435,8 +562,8 @@ components:
     ErrorResponse:
       type: object
       required:
-      - code
-      - message
+        - code
+        - message
       properties:
         code:
           $ref: '#/components/schemas/ErrorCode'
@@ -450,9 +577,9 @@ components:
     WorkCreateRequest:
       type: object
       required:
-      - workId
-      - name
-      - description
+        - workId
+        - name
+        - description
       properties:
         workId:
           type: string
@@ -466,10 +593,10 @@ components:
     WorkCreateResponse:
       type: object
       required:
-      - workId
-      - name
-      - description
-      - createdAt
+        - workId
+        - name
+        - description
+        - createdAt
       properties:
         workId:
           type: string
@@ -483,7 +610,7 @@ components:
     SubmissionUploadRequest:
       type: object
       required:
-      - file
+        - file
       properties:
         file:
           type: string
@@ -492,11 +619,11 @@ components:
     SubmissionUploadResponse:
       type: object
       required:
-      - submissionId
-      - workId
-      - fileId
-      - status
-      - uploadedAt
+        - submissionId
+        - workId
+        - fileId
+        - status
+        - uploadedAt
       properties:
         submissionId:
           type: string
@@ -514,10 +641,10 @@ components:
         status:
           type: string
           enum:
-          - QUEUED
-          - PROCESSING
-          - DONE
-          - ERROR
+            - QUEUED
+            - PROCESSING
+            - DONE
+            - ERROR
           description: Status of plagiarism check
           example: QUEUED
         uploadedAt:
@@ -532,11 +659,11 @@ components:
     SubmissionDetail:
       type: object
       required:
-      - submissionId
-      - workId
-      - fileId
-      - status
-      - uploadedAt
+        - submissionId
+        - workId
+        - fileId
+        - status
+        - uploadedAt
       properties:
         submissionId:
           type: string
@@ -554,10 +681,10 @@ components:
         status:
           type: string
           enum:
-          - QUEUED
-          - PROCESSING
-          - DONE
-          - ERROR
+            - QUEUED
+            - PROCESSING
+            - DONE
+            - ERROR
           description: Current status of plagiarism check
           example: DONE
         uploadedAt:
@@ -570,11 +697,11 @@ components:
     PlagiarismReport:
       type: object
       required:
-      - reportId
-      - status
-      - plagiarismDetected
-      - similarityPercent
-      - createdAt
+        - reportId
+        - status
+        - plagiarismDetected
+        - similarityPercent
+        - createdAt
       properties:
         reportId:
           type: string
@@ -583,10 +710,10 @@ components:
         status:
           type: string
           enum:
-          - QUEUED
-          - PROCESSING
-          - DONE
-          - ERROR
+            - QUEUED
+            - PROCESSING
+            - DONE
+            - ERROR
           description: Report status
           example: DONE
         plagiarismDetected:
@@ -623,9 +750,9 @@ components:
     MatchedSubmission:
       type: object
       required:
-      - submissionId
-      - similarityPercent
-      - matchedChunks
+        - submissionId
+        - similarityPercent
+        - matchedChunks
       properties:
         submissionId:
           type: string
@@ -646,12 +773,12 @@ components:
     WorkReportItem:
       type: object
       required:
-      - reportId
-      - submissionId
-      - status
-      - plagiarismDetected
-      - similarityPercent
-      - createdAt
+        - reportId
+        - submissionId
+        - status
+        - plagiarismDetected
+        - similarityPercent
+        - createdAt
       properties:
         reportId:
           type: string
@@ -664,10 +791,10 @@ components:
         status:
           type: string
           enum:
-          - QUEUED
-          - PROCESSING
-          - DONE
-          - ERROR
+            - QUEUED
+            - PROCESSING
+            - DONE
+            - ERROR
           description: Report status
           example: DONE
         plagiarismDetected:
@@ -698,11 +825,11 @@ components:
     WorkStats:
       type: object
       required:
-      - workId
-      - totalSubmissions
-      - submissionsWithPlagiarism
-      - submissionsWithoutPlagiarism
-      - averageSimilarityPercent
+        - workId
+        - totalSubmissions
+        - submissionsWithPlagiarism
+        - submissionsWithoutPlagiarism
+        - averageSimilarityPercent
       properties:
         workId:
           type: string
@@ -719,4 +846,18 @@ components:
           type: string
           format: date-time
           nullable: true
+    WordCloudBuildRequest:
+      type: object
+      required:
+        - file
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Document file to build a word cloud from (PDF, DOCX, TXT, RTF,
+            ODT).
+    WordCloudImage:
+      type: string
+      format: binary
+      description: Binary image payload.
 security: []

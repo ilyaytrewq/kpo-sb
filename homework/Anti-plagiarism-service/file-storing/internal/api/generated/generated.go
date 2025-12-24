@@ -92,7 +92,7 @@ type GetFileInfoParams struct {
 // UploadFileMultipartRequestBody defines body for UploadFile for multipart/form-data ContentType.
 type UploadFileMultipartRequestBody = UploadFileRequest
 
-// ServerInterface represents all server handler.
+// ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Upload a document file
 	// (POST /files/upload)

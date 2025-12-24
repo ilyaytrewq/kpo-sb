@@ -57,6 +57,12 @@ const (
 	WorkReportItemStatusQUEUED     WorkReportItemStatus = "QUEUED"
 )
 
+// Defines values for BuildWordCloudParamsFormat.
+const (
+	Png BuildWordCloudParamsFormat = "png"
+	Svg BuildWordCloudParamsFormat = "svg"
+)
+
 // ErrorCode defines model for ErrorCode.
 type ErrorCode string
 
@@ -172,6 +178,15 @@ type SubmissionUploadResponse struct {
 // SubmissionUploadResponseStatus Status of plagiarism check
 type SubmissionUploadResponseStatus string
 
+// WordCloudBuildRequest defines model for WordCloudBuildRequest.
+type WordCloudBuildRequest struct {
+	// File Document file to build a word cloud from (PDF, DOCX, TXT, RTF, ODT).
+	File openapi_types.File `json:"file"`
+}
+
+// WordCloudImage Binary image payload.
+type WordCloudImage = openapi_types.File
+
 // WorkCreateRequest defines model for WorkCreateRequest.
 type WorkCreateRequest struct {
 	// Description Work description
@@ -232,17 +247,47 @@ type WorkStats struct {
 	WorkId                       string     `json:"workId"`
 }
 
+// BuildWordCloudParams defines parameters for BuildWordCloud.
+type BuildWordCloudParams struct {
+	// Format Output image format.
+	Format *BuildWordCloudParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+
+	// Width Image width in pixels.
+	Width *int `form:"width,omitempty" json:"width,omitempty"`
+
+	// Height Image height in pixels.
+	Height *int `form:"height,omitempty" json:"height,omitempty"`
+
+	// RemoveStopwords Remove common stopwords (language-dependent).
+	RemoveStopwords *bool `form:"removeStopwords,omitempty" json:"removeStopwords,omitempty"`
+
+	// Language Stopwords language (QuickChart).
+	Language *string `form:"language,omitempty" json:"language,omitempty"`
+
+	// MinWordLength Minimum word length to include.
+	MinWordLength *int `form:"minWordLength,omitempty" json:"minWordLength,omitempty"`
+}
+
+// BuildWordCloudParamsFormat defines parameters for BuildWordCloud.
+type BuildWordCloudParamsFormat string
+
+// BuildWordCloudMultipartRequestBody defines body for BuildWordCloud for multipart/form-data ContentType.
+type BuildWordCloudMultipartRequestBody = WordCloudBuildRequest
+
 // CreateWorkJSONRequestBody defines body for CreateWork for application/json ContentType.
 type CreateWorkJSONRequestBody = WorkCreateRequest
 
 // SubmitWorkMultipartRequestBody defines body for SubmitWork for multipart/form-data ContentType.
 type SubmitWorkMultipartRequestBody = SubmissionUploadRequest
 
-// ServerInterface represents all server handler.
+// ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Get submission details
 	// (GET /submissions/{submissionId})
 	GetSubmission(w http.ResponseWriter, r *http.Request, submissionId string)
+	// Build a word cloud from an uploaded document
+	// (POST /wordcloud)
+	BuildWordCloud(w http.ResponseWriter, r *http.Request, params BuildWordCloudParams)
 	// Create a work
 	// (POST /works)
 	CreateWork(w http.ResponseWriter, r *http.Request)
@@ -264,6 +309,12 @@ type Unimplemented struct{}
 // Get submission details
 // (GET /submissions/{submissionId})
 func (_ Unimplemented) GetSubmission(w http.ResponseWriter, r *http.Request, submissionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Build a word cloud from an uploaded document
+// (POST /wordcloud)
+func (_ Unimplemented) BuildWordCloud(w http.ResponseWriter, r *http.Request, params BuildWordCloudParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -316,6 +367,73 @@ func (siw *ServerInterfaceWrapper) GetSubmission(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSubmission(w, r, submissionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BuildWordCloud operation middleware
+func (siw *ServerInterfaceWrapper) BuildWordCloud(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BuildWordCloudParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "format", r.URL.Query(), &params.Format)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "width" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "width", r.URL.Query(), &params.Width)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "width", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "height" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "height", r.URL.Query(), &params.Height)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "height", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "removeStopwords" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "removeStopwords", r.URL.Query(), &params.RemoveStopwords)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "removeStopwords", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "language" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "language", r.URL.Query(), &params.Language)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "language", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "minWordLength" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "minWordLength", r.URL.Query(), &params.MinWordLength)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "minWordLength", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BuildWordCloud(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -529,6 +647,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/submissions/{submissionId}", wrapper.GetSubmission)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/wordcloud", wrapper.BuildWordCloud)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/works", wrapper.CreateWork)

@@ -62,6 +62,12 @@ const (
 	WorkReportItemStatusQUEUED     WorkReportItemStatus = "QUEUED"
 )
 
+// Defines values for BuildWordCloudParamsFormat.
+const (
+	Png BuildWordCloudParamsFormat = "png"
+	Svg BuildWordCloudParamsFormat = "svg"
+)
+
 // ErrorCode defines model for ErrorCode.
 type ErrorCode string
 
@@ -177,6 +183,15 @@ type SubmissionUploadResponse struct {
 // SubmissionUploadResponseStatus Status of plagiarism check
 type SubmissionUploadResponseStatus string
 
+// WordCloudBuildRequest defines model for WordCloudBuildRequest.
+type WordCloudBuildRequest struct {
+	// File Document file to build a word cloud from (PDF, DOCX, TXT, RTF, ODT).
+	File openapi_types.File `json:"file"`
+}
+
+// WordCloudImage Binary image payload.
+type WordCloudImage = openapi_types.File
+
 // WorkCreateRequest defines model for WorkCreateRequest.
 type WorkCreateRequest struct {
 	// Description Work description
@@ -236,6 +251,33 @@ type WorkStats struct {
 	TotalSubmissions             int        `json:"totalSubmissions"`
 	WorkId                       string     `json:"workId"`
 }
+
+// BuildWordCloudParams defines parameters for BuildWordCloud.
+type BuildWordCloudParams struct {
+	// Format Output image format.
+	Format *BuildWordCloudParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+
+	// Width Image width in pixels.
+	Width *int `form:"width,omitempty" json:"width,omitempty"`
+
+	// Height Image height in pixels.
+	Height *int `form:"height,omitempty" json:"height,omitempty"`
+
+	// RemoveStopwords Remove common stopwords (language-dependent).
+	RemoveStopwords *bool `form:"removeStopwords,omitempty" json:"removeStopwords,omitempty"`
+
+	// Language Stopwords language (QuickChart).
+	Language *string `form:"language,omitempty" json:"language,omitempty"`
+
+	// MinWordLength Minimum word length to include.
+	MinWordLength *int `form:"minWordLength,omitempty" json:"minWordLength,omitempty"`
+}
+
+// BuildWordCloudParamsFormat defines parameters for BuildWordCloud.
+type BuildWordCloudParamsFormat string
+
+// BuildWordCloudMultipartRequestBody defines body for BuildWordCloud for multipart/form-data ContentType.
+type BuildWordCloudMultipartRequestBody = WordCloudBuildRequest
 
 // CreateWorkJSONRequestBody defines body for CreateWork for application/json ContentType.
 type CreateWorkJSONRequestBody = WorkCreateRequest
@@ -319,6 +361,9 @@ type ClientInterface interface {
 	// GetSubmission request
 	GetSubmission(ctx context.Context, submissionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// BuildWordCloudWithBody request with any body
+	BuildWordCloudWithBody(ctx context.Context, params *BuildWordCloudParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateWorkWithBody request with any body
 	CreateWorkWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -336,6 +381,18 @@ type ClientInterface interface {
 
 func (c *Client) GetSubmission(ctx context.Context, submissionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetSubmissionRequest(c.Server, submissionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BuildWordCloudWithBody(ctx context.Context, params *BuildWordCloudParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBuildWordCloudRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -436,6 +493,137 @@ func NewGetSubmissionRequest(server string, submissionId string) (*http.Request,
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewBuildWordCloudRequestWithBody generates requests for BuildWordCloud with any type of body
+func NewBuildWordCloudRequestWithBody(server string, params *BuildWordCloudParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/wordcloud")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "format", runtime.ParamLocationQuery, *params.Format); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Width != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "width", runtime.ParamLocationQuery, *params.Width); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Height != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "height", runtime.ParamLocationQuery, *params.Height); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.RemoveStopwords != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "removeStopwords", runtime.ParamLocationQuery, *params.RemoveStopwords); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Language != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "language", runtime.ParamLocationQuery, *params.Language); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.MinWordLength != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "minWordLength", runtime.ParamLocationQuery, *params.MinWordLength); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -630,6 +818,9 @@ type ClientWithResponsesInterface interface {
 	// GetSubmissionWithResponse request
 	GetSubmissionWithResponse(ctx context.Context, submissionId string, reqEditors ...RequestEditorFn) (*GetSubmissionResponse, error)
 
+	// BuildWordCloudWithBodyWithResponse request with any body
+	BuildWordCloudWithBodyWithResponse(ctx context.Context, params *BuildWordCloudParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BuildWordCloudResponse, error)
+
 	// CreateWorkWithBodyWithResponse request with any body
 	CreateWorkWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkResponse, error)
 
@@ -663,6 +854,31 @@ func (r GetSubmissionResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetSubmissionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type BuildWordCloudResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *ErrorResponse
+	JSON422      *ErrorResponse
+	JSON500      *ErrorResponse
+	JSON502      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r BuildWordCloudResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BuildWordCloudResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -776,6 +992,15 @@ func (c *ClientWithResponses) GetSubmissionWithResponse(ctx context.Context, sub
 	return ParseGetSubmissionResponse(rsp)
 }
 
+// BuildWordCloudWithBodyWithResponse request with arbitrary body returning *BuildWordCloudResponse
+func (c *ClientWithResponses) BuildWordCloudWithBodyWithResponse(ctx context.Context, params *BuildWordCloudParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BuildWordCloudResponse, error) {
+	rsp, err := c.BuildWordCloudWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBuildWordCloudResponse(rsp)
+}
+
 // CreateWorkWithBodyWithResponse request with arbitrary body returning *CreateWorkResponse
 func (c *ClientWithResponses) CreateWorkWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkResponse, error) {
 	rsp, err := c.CreateWorkWithBody(ctx, contentType, body, reqEditors...)
@@ -854,6 +1079,53 @@ func ParseGetSubmissionResponse(rsp *http.Response) (*GetSubmissionResponse, err
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseBuildWordCloudResponse parses an HTTP response from a BuildWordCloudWithResponse call
+func ParseBuildWordCloudResponse(rsp *http.Response) (*BuildWordCloudResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BuildWordCloudResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
 
 	}
 
