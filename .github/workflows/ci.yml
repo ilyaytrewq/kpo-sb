@@ -62,10 +62,41 @@ jobs:
           print("py_dir =", py_dir)
           PY
 
+  openapi-lint:
+    name: OpenAPI lint (Redocly)
+    runs-on: ubuntu-22.04
+    needs: [detect]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint OpenAPI specs (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          lint_one() {
+            local f="$1"
+            if [ -f "$f" ]; then
+              echo "Linting: $f"
+              npx --yes @redocly/cli lint "$f"
+            else
+              echo "Skip (not found): $f"
+            fi
+          }
+
+          lint_one ./api-files/openapi.yaml
+          lint_one ./api-files/file-storing.yaml
+          lint_one ./api-files/file-analisys.yaml
+          lint_one ./api-files/embedding-service.yaml
+
   go-unit:
     name: Go tests (${{ matrix.module }})
     runs-on: ubuntu-22.04
-    needs: [detect]
+    needs: [detect, openapi-lint]
     strategy:
       fail-fast: false
       matrix:
