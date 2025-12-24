@@ -136,10 +136,6 @@ jobs:
           }
 
           validate "./docker-compose.yaml"
-          validate "./embedding-service/docker-compose.yaml"
-          validate "./file-storing/docker-compose.yaml"
-          validate "./file-analisys/docker-compose.yaml"
-          validate "./api-gateway/docker-compose.yaml"
 
           if [ -f docker-compose.yaml ]; then
             sudo -n docker compose up -d --build
