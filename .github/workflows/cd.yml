@@ -40,7 +40,7 @@ jobs:
       - name: Prepare SSH
         shell: bash
         env:
-          HOST: 158.160.186.61
+          HOST: ${{ secrets.DEPLOY_HOST }}
           KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
@@ -52,7 +52,7 @@ jobs:
       - name: Rsync code to server
         shell: bash
         env:
-          HOST: 158.160.186.61
+          HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
@@ -64,10 +64,13 @@ jobs:
           else
             REMOTE_DIR="/opt/anti-plagiarism/dev"
           fi
-
           echo "REMOTE_DIR=$REMOTE_DIR" >> $GITHUB_ENV
 
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+            "${USER}@${HOST}" "sudo mkdir -p '${REMOTE_DIR}/repo' && sudo chown -R '${USER}:${USER}' '/opt/anti-plagiarism'"
+
           rsync -az --delete \
+            -e "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
             --exclude ".git" \
             --exclude ".DS_Store" \
             --exclude "__MACOSX" \
@@ -76,7 +79,7 @@ jobs:
       - name: Deploy (docker compose up)
         shell: bash
         env:
-          HOST: 158.160.186.61
+          HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           BASE: ${{ steps.detect.outputs.base }}
           S3_ENV: ${{ secrets.S3_ENV }}
@@ -87,4 +90,30 @@ jobs:
           S3_B64="$(printf "%s" "${S3_ENV:-}" | base64 -w0)"
           YC_B64="$(printf "%s" "${YANDEX_CLOUD_ENV:-}" | base64 -w0)"
 
-          ssh "${USER}@${HOST}" "REMOTE_DIR='${REMOTE_DIR}' BASE='${BASE}' S3_B64='${S3_B64}' YC_B64='${YC_B64}
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+            "${USER}@${HOST}" "REMOTE_DIR='${REMOTE_DIR}' BASE='${BASE}' S3_B64='${S3_B64}' YC_B64='${YC_B64}' bash -s" <<'SCRIPT'
+          set -euo pipefail
+
+          cd "$REMOTE_DIR/repo/$BASE"
+
+          if [ -n "${S3_B64:-}" ]; then
+            mkdir -p file-storing/internal/env-files
+            printf "%s" "$S3_B64" | base64 -d > file-storing/internal/env-files/s3.env
+          fi
+
+          if [ -n "${YC_B64:-}" ]; then
+            mkdir -p embedding-service/internal/env-files
+            printf "%s" "$YC_B64" | base64 -d > embedding-service/internal/env-files/yandexCloud.env
+          fi
+
+          if [ -f docker-compose.yaml ]; then
+            docker compose up -d --build
+          fi
+
+          (cd embedding-service && docker compose up -d --build)
+          (cd file-storing && docker compose up -d --build)
+          (cd file-analisys && docker compose up -d --build)
+          (cd api-gateway && docker compose up -d --build)
+
+          docker image prune -f >/dev/null 2>&1 || true
+          SCRIPT
