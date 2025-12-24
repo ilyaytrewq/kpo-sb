@@ -30,24 +30,50 @@ jobs:
         with:
           ref: ${{ inputs.checkout_ref }}
 
-      - name: Detect project base dir
+      - name: Detect project base dir (root docker-compose)
         id: detect
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import pathlib, os
+
           root = pathlib.Path(".").resolve()
 
-          base = None
-          for p in root.rglob("api-gateway/docker-compose.yaml"):
+          def ok(p: pathlib.Path) -> bool:
             if ".git" in p.parts:
-              continue
-            base = p.parent.parent
-            break
+              return False
+            # Ищем именно корневой compose проекта (где есть api-files/openapi.yaml)
+            if p.name not in ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml"):
+              return False
+            base = p.parent
+            if (base / "api-files" / "openapi.yaml").exists():
+              return True
+            return False
+
+          base = None
+          for p in root.rglob("docker-compose.yaml"):
+            if ok(p):
+              base = p.parent
+              break
+          if base is None:
+            for p in root.rglob("docker-compose.yml"):
+              if ok(p):
+                base = p.parent
+                break
+          if base is None:
+            for p in root.rglob("compose.yaml"):
+              if ok(p):
+                base = p.parent
+                break
+          if base is None:
+            for p in root.rglob("compose.yml"):
+              if ok(p):
+                base = p.parent
+                break
 
           if base is None:
-            raise SystemExit("Cannot find api-gateway/docker-compose.yaml in repo")
+            raise SystemExit("Cannot find root docker compose (docker-compose.yaml/yml or compose.yaml/yml) with api-files/openapi.yaml nearby")
 
           rel = str(base.relative_to(root))
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
@@ -94,7 +120,7 @@ jobs:
             --exclude "__MACOSX" \
             "./" "${USER}@${HOST}:${REMOTE_DIR}/repo"
 
-      - name: Deploy (validate compose + docker compose up)
+      - name: Deploy (validate root compose + docker compose up)
         shell: bash
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -114,6 +140,7 @@ jobs:
 
           cd "$REMOTE_DIR/repo/$BASE"
 
+          # env-файлы остаются как раньше (папки сервисов могут быть, compose один общий)
           if [ -n "${S3_B64:-}" ]; then
             mkdir -p file-storing/internal/env-files
             printf "%s" "$S3_B64" | base64 -d > file-storing/internal/env-files/s3.env
@@ -127,18 +154,36 @@ jobs:
           sudo -n docker version >/dev/null
           sudo -n docker compose version >/dev/null
 
-          validate() {
-            local f="$1"
-            if [ -f "$f" ]; then
-              echo "== Validating: $f =="
-              sudo -n docker compose -f "$f" config >/dev/null
-            fi
-          }
+          # 1) Проверим, что нет других compose внутри подпапок (ты просил "удалить")
+          # кроме корневого ./docker-compose.yaml или ./docker-compose.yml или ./compose.yaml/yml
+          other="$(find . -type f \( -name 'docker-compose.yml' -o -name 'docker-compose.yaml' -o -name 'compose.yml' -o -name 'compose.yaml' \) \
+                    ! -path './docker-compose.yml' ! -path './docker-compose.yaml' ! -path './compose.yml' ! -path './compose.yaml' | sed 's|^\./||' || true)"
+          if [ -n "$other" ]; then
+            echo "ERROR: Found extra compose files inside subfolders (please delete them from repo):"
+            echo "$other"
+            exit 1
+          fi
 
-          validate "./docker-compose.yaml"
-
+          # 2) Валидируем и поднимаем только корневой compose
           if [ -f docker-compose.yaml ]; then
-            sudo -n docker compose up -d --build
+            echo "== Validating: ./docker-compose.yaml =="
+            sudo -n docker compose -f docker-compose.yaml config >/dev/null
+            sudo -n docker compose -f docker-compose.yaml up -d --build
+          elif [ -f docker-compose.yml ]; then
+            echo "== Validating: ./docker-compose.yml =="
+            sudo -n docker compose -f docker-compose.yml config >/dev/null
+            sudo -n docker compose -f docker-compose.yml up -d --build
+          elif [ -f compose.yaml ]; then
+            echo "== Validating: ./compose.yaml =="
+            sudo -n docker compose -f compose.yaml config >/dev/null
+            sudo -n docker compose -f compose.yaml up -d --build
+          elif [ -f compose.yml ]; then
+            echo "== Validating: ./compose.yml =="
+            sudo -n docker compose -f compose.yml config >/dev/null
+            sudo -n docker compose -f compose.yml up -d --build
+          else
+            echo "ERROR: No root compose file found in $PWD"
+            exit 1
           fi
 
           sudo -n docker image prune -f >/dev/null 2>&1 || true
