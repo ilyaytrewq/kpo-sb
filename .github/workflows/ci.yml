@@ -130,7 +130,7 @@ jobs:
     name: Deploy (after local tests)
     needs: [python-unit]
     if: ${{ github.event_name == 'push' }}
-    uses: ./.github/workflows/cd-deploy.yml
+    uses: ./.github/workflows/cd.yml
     secrets: inherit
     with:
       checkout_ref: ${{ github.sha }}
