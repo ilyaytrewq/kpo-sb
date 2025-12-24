@@ -1,23 +1,45 @@
 name: CD (Deploy to Yandex VPS)
 
 on:
-  push:
-    branches: ["main", "dev/hw3"]
+  workflow_run:
+    workflows: ["CI (Local tests)"]
+    types: [completed]
   workflow_dispatch:
 
 jobs:
   deploy:
+    name: Deploy
     runs-on: ubuntu-22.04
+    if: |
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev/hw3')) ||
+      (github.event_name == 'workflow_dispatch')
 
     steps:
+      - name: Set ref/branch for checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "CHECKOUT_REF=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
+            echo "DEPLOY_BRANCH=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_ENV"
+          else
+            echo "CHECKOUT_REF=${{ github.sha }}" >> "$GITHUB_ENV"
+            echo "DEPLOY_BRANCH=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Detect project base dir
         id: detect
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+          python3 - <<'PY'
           import pathlib, os
           root = pathlib.Path(".").resolve()
 
@@ -59,12 +81,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rsync
 
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+          if [ "${DEPLOY_BRANCH}" = "main" ]; then
             REMOTE_DIR="/opt/anti-plagiarism/prod"
           else
             REMOTE_DIR="/opt/anti-plagiarism/dev"
           fi
-          echo "REMOTE_DIR=$REMOTE_DIR" >> $GITHUB_ENV
+          echo "REMOTE_DIR=$REMOTE_DIR" >> "$GITHUB_ENV"
 
           ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
             "${USER}@${HOST}" "sudo mkdir -p '${REMOTE_DIR}/repo' && sudo chown -R '${USER}:${USER}' '/opt/anti-plagiarism'"
@@ -76,7 +98,7 @@ jobs:
             --exclude "__MACOSX" \
             "./" "${USER}@${HOST}:${REMOTE_DIR}/repo"
 
-      - name: Deploy (docker compose up)
+      - name: Deploy (validate compose + docker compose up)
         shell: bash
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -106,9 +128,23 @@ jobs:
             printf "%s" "$YC_B64" | base64 -d > embedding-service/internal/env-files/yandexCloud.env
           fi
 
-          # Проверка доступа к Docker (важно именно через sudo)
           sudo -n docker version >/dev/null
           sudo -n docker compose version >/dev/null
+
+          validate() {
+            local f="$1"
+            if [ -f "$f" ]; then
+              echo "== Validating: $f =="
+              # Это поймает ошибки типа environment: - (nil)
+              sudo -n docker compose -f "$f" config >/dev/null
+            fi
+          }
+
+          validate "./docker-compose.yaml"
+          validate "./embedding-service/docker-compose.yaml"
+          validate "./file-storing/docker-compose.yaml"
+          validate "./file-analisys/docker-compose.yaml"
+          validate "./api-gateway/docker-compose.yaml"
 
           if [ -f docker-compose.yaml ]; then
             sudo -n docker compose up -d --build
@@ -121,3 +157,86 @@ jobs:
 
           sudo -n docker image prune -f >/dev/null 2>&1 || true
           SCRIPT
+
+  integration-tests:
+    name: Integration tests (after deploy)
+    runs-on: ubuntu-22.04
+    needs: [deploy]
+    if: ${{ needs.deploy.result == 'success' }}
+
+    steps:
+      - name: Set ref for checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "CHECKOUT_REF=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
+          else
+            echo "CHECKOUT_REF=${{ github.sha }}" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Detect tests dir (py_dir)
+        id: detect_py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib
+          root = pathlib.Path(".").resolve()
+
+          py_dir = ""
+          for p in root.rglob("api-gateway/go.mod"):
+            if ".git" in p.parts:
+              continue
+            anti = p.parent.parent
+            t = anti / "tests"
+            if t.exists():
+              py_dir = str(t.relative_to(root))
+            break
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"py_dir={py_dir}\n")
+
+          print("py_dir =", py_dir)
+          PY
+
+      - name: Wait for gateway /health
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          url="${API_GATEWAY_URL}/health"
+          echo "Waiting for $url ..."
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /tmp/health.json -w "%{http_code}" "$url" || true)"
+            if [ "$code" = "200" ]; then
+              cat /tmp/health.json || true
+              echo "Health OK"
+              exit 0
+            fi
+            echo "Attempt $i/60: HTTP $code"
+            sleep 5
+          done
+          echo "Health check failed (timeout)"
+          echo "Last response:"
+          cat /tmp/health.json || true
+          exit 1
+
+      - name: Run integration E2E (full flow)
+        if: ${{ steps.detect_py.outputs.py_dir != '' }}
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          RUN_FULL_FLOW=1 API_GATEWAY_URL="${API_GATEWAY_URL}" \
+            python -m unittest discover -s "${{ steps.detect_py.outputs.py_dir }}" -p "test_*.py" -v
