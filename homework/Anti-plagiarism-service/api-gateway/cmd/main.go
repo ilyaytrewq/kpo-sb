@@ -26,12 +26,14 @@ func main() {
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{
-			"http://158.160.208.12:8088",
+			"http://158.160.186.61:8088",
 			"http://localhost:8088",
 		},
-		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
-		MaxAge:         300,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
+		ExposedHeaders:   []string{"X-Request-ID"},
+		AllowCredentials: false,
+		MaxAge:           300,
 	}))
 
 	r.Use(middleware.RealIP)
