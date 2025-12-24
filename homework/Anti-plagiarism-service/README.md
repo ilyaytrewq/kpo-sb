@@ -71,19 +71,24 @@ Client ← API Gateway ← File Analysis (получение отчета)
 │   └── internal/
 │       ├── api/generated.go
 │       └── handlers/
-├── docs/                         # Documentation
-│   ├── ARCHITECTURE.md          # Full architecture
-│   ├── API_UPDATE_SUMMARY.md    # API changes summary
-│   └── CLIENTS_USAGE.md         # Client usage examples
-├── CHECKLIST.md                  # Development checklist
-├── OPENAPI_UPDATE_COMPLETE.md    # Update report
+|
 └── README.md
 ```
 
 ## 🚀 Quick Start
 
-### 1. Кодогенерация кода
+### Запуск сервисов 
 
+```bash
+docker compose up --build -d
+cd embedding-service && docker compose up --build -d
+cd ../file-storing && docker compose up --build -d
+cd ../file-analisys && docker compose up --build -d
+cd ../api-gateway && docker compose up --build -d
+```
+
+### Кодогенерация кода
+#### использовалась кодогенерация на основе open api файлов
 ```bash
 # Серверный код
 oapi-codegen -generate chi-server,types -package api \
@@ -133,18 +138,6 @@ npx @redocly/cli lint ./api-files/embedding-service.yaml
 ilyatikhonov@MacBook-Pro-Ilya api-gateway % sqlc generate
 ```
 
-### 2. Запуск сервисов (когда реализованы handlers)
-
-```bash
-# из корня репозитория
-bash ./run.sh
-
-# или по отдельности
-cd embedding-service && docker compose up -d
-cd ../file-storing && docker compose up -d
-cd ../file-analisys && docker compose up -d
-cd ../api-gateway && docker compose up -d
-```
 
 ## 🔌 API Endpoints и примеры запросов
 
