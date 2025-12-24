@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       modules: ${{ steps.detect.outputs.modules }}
-      anti_base: ${{ steps.detect.outputs.anti_base }}
       py_dir: ${{ steps.detect.outputs.py_dir }}
     steps:
       - uses: actions/checkout@v4
@@ -56,11 +55,9 @@ jobs:
                   py_dir = str(t.relative_to(root))
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"anti_base={anti}\n")
               f.write(f"modules={json.dumps(modules)}\n")
               f.write(f"py_dir={py_dir}\n")
 
-          print("anti_base =", anti)
           print("modules =", modules)
           print("py_dir =", py_dir)
           PY
@@ -73,7 +70,6 @@ jobs:
       fail-fast: false
       matrix:
         module: ${{ fromJSON(needs.detect.outputs.modules) }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -113,7 +109,6 @@ jobs:
     name: Python tests (local, if present)
     runs-on: ubuntu-22.04
     needs: [detect, go-unit]
-    if: ${{ needs.detect.outputs.py_dir != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -121,8 +116,65 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run local unittest discovery
+      - name: Run local unittest discovery (if present)
         shell: bash
         run: |
           set -euo pipefail
+          if [ -z "${{ needs.detect.outputs.py_dir }}" ]; then
+            echo "No python tests dir detected, skipping."
+            exit 0
+          fi
           python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
+
+  deploy:
+    name: Deploy (after local tests)
+    needs: [python-unit]
+    if: ${{ github.event_name == 'push' }}
+    uses: ./.github/workflows/cd-deploy.yml
+    secrets: inherit
+    with:
+      checkout_ref: ${{ github.sha }}
+      deploy_branch: ${{ github.ref_name }}
+
+  integration-tests:
+    name: Integration tests (after deploy)
+    runs-on: ubuntu-22.04
+    needs: [deploy, detect]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Wait for gateway /health
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          url="${API_GATEWAY_URL}/health"
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /tmp/health.json -w "%{http_code}" "$url" || true)"
+            if [ "$code" = "200" ]; then
+              cat /tmp/health.json || true
+              exit 0
+            fi
+            sleep 5
+          done
+          cat /tmp/health.json || true
+          exit 1
+
+      - name: Run integration E2E (full flow)
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          if [ -z "${{ needs.detect.outputs.py_dir }}" ]; then
+            echo "No tests dir detected, skipping integration tests."
+            exit 0
+          fi
+          RUN_FULL_FLOW=1 API_GATEWAY_URL="${API_GATEWAY_URL}" \
+            python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
