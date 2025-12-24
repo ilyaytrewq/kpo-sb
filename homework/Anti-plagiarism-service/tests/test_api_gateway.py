@@ -150,7 +150,7 @@ class FullFileFlowTests(unittest.TestCase):
         self.assertIsInstance(reports, list)
         self.assertGreaterEqual(len(reports), 2)
 
-        # 7) stats updated
+        # 7) stats updated#
         status, stats = _request("GET", f"{API_V1_URL}/works/{work_id}/stats")
         self.assertEqual(status, 200, stats)
         self.assertEqual(stats.get("workId"), work_id)
