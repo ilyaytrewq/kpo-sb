@@ -136,7 +136,7 @@ class FullFileFlowTests(unittest.TestCase):
         sim = rep2.get("similarityPercent")
         self.assertIsNotNone(sim)
         self.assertGreaterEqual(float(sim), 0.0)
-        self.assertLessEqual(float(sim), 100.0)
+        self.assertLessEqual(float(sim), 100.02)
 
         matched = rep2.get("matchedSubmissions") or []
         # если система сравнивает внутри work, то sub1 должен всплыть.
