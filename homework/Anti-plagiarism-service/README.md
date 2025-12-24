@@ -24,6 +24,14 @@ Client → API Gateway → File Storing (загрузка файла, получ
 Client ← API Gateway ← File Analysis (получение отчета)
 ```
 
+## Запуск
+
+### Запуск сервисов
+
+```bash
+docker compose up --build -d
+```
+
 ## ⚙️ Асинхронная обработка
 
 - `AnalyzeFile` возвращает 202 и ставит задачу в очередь.
@@ -89,15 +97,9 @@ Client ← API Gateway ← File Analysis (получение отчета)
 
 
 
-## 🚀 Quick Start
 
-### Запуск сервисов 
 
-```bash
-docker compose up --build -d
-```
-
-### Кодогенерация кода
+## Кодогенерация кода
 #### использовалась кодогенерация на основе open api файлов
 ```bash
 # Серверный код
@@ -140,6 +142,13 @@ oapi-codegen -generate client,types -package filestoring \
 ilyatikhonov@MacBook-Pro-Ilya api-gateway % sqlc generate
 ```
 
+#### Для проверки open api файлов использовался Redocly (встроен в CI)
+```bash
+npx @redocly/cli lint ./api-files/openapi.yaml
+npx @redocly/cli lint ./api-files/file-storing.yaml
+npx @redocly/cli lint ./api-files/file-analisys.yaml
+npx @redocly/cli lint ./api-files/embedding-service.yaml
+```
 
 ## 🧩 CI/CD
 
