@@ -1,38 +1,34 @@
 name: CD (Deploy to Yandex VPS)
 
 on:
-  workflow_run:
-    workflows: ["CI (Local tests)"]
-    types: [completed]
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        required: true
+        type: string
+      deploy_branch:
+        required: true
+        type: string
+    secrets:
+      DEPLOY_HOST:
+        required: true
+      DEPLOY_USER:
+        required: true
+      DEPLOY_SSH_KEY:
+        required: true
+      S3_ENV:
+        required: false
+      YANDEX_CLOUD_ENV:
+        required: false
 
 jobs:
   deploy:
-    name: Deploy
     runs-on: ubuntu-22.04
-    if: |
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev/hw3')) ||
-      (github.event_name == 'workflow_dispatch')
 
     steps:
-      - name: Set ref/branch for checkout
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "CHECKOUT_REF=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
-            echo "DEPLOY_BRANCH=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_ENV"
-          else
-            echo "CHECKOUT_REF=${{ github.sha }}" >> "$GITHUB_ENV"
-            echo "DEPLOY_BRANCH=${{ github.ref_name }}" >> "$GITHUB_ENV"
-          fi
-
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.CHECKOUT_REF }}
+          ref: ${{ inputs.checkout_ref }}
 
       - name: Detect project base dir
         id: detect
@@ -81,7 +77,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rsync
 
-          if [ "${DEPLOY_BRANCH}" = "main" ]; then
+          if [ "${{ inputs.deploy_branch }}" = "main" ]; then
             REMOTE_DIR="/opt/anti-plagiarism/prod"
           else
             REMOTE_DIR="/opt/anti-plagiarism/dev"
@@ -135,7 +131,6 @@ jobs:
             local f="$1"
             if [ -f "$f" ]; then
               echo "== Validating: $f =="
-              # Это поймает ошибки типа environment: - (nil)
               sudo -n docker compose -f "$f" config >/dev/null
             fi
           }
@@ -157,86 +152,3 @@ jobs:
 
           sudo -n docker image prune -f >/dev/null 2>&1 || true
           SCRIPT
-
-  integration-tests:
-    name: Integration tests (after deploy)
-    runs-on: ubuntu-22.04
-    needs: [deploy]
-    if: ${{ needs.deploy.result == 'success' }}
-
-    steps:
-      - name: Set ref for checkout
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "CHECKOUT_REF=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
-          else
-            echo "CHECKOUT_REF=${{ github.sha }}" >> "$GITHUB_ENV"
-          fi
-
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.CHECKOUT_REF }}
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Detect tests dir (py_dir)
-        id: detect_py
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import os, pathlib
-          root = pathlib.Path(".").resolve()
-
-          py_dir = ""
-          for p in root.rglob("api-gateway/go.mod"):
-            if ".git" in p.parts:
-              continue
-            anti = p.parent.parent
-            t = anti / "tests"
-            if t.exists():
-              py_dir = str(t.relative_to(root))
-            break
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            f.write(f"py_dir={py_dir}\n")
-
-          print("py_dir =", py_dir)
-          PY
-
-      - name: Wait for gateway /health
-        shell: bash
-        env:
-          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
-        run: |
-          set -euo pipefail
-          url="${API_GATEWAY_URL}/health"
-          echo "Waiting for $url ..."
-          for i in $(seq 1 60); do
-            code="$(curl -s -o /tmp/health.json -w "%{http_code}" "$url" || true)"
-            if [ "$code" = "200" ]; then
-              cat /tmp/health.json || true
-              echo "Health OK"
-              exit 0
-            fi
-            echo "Attempt $i/60: HTTP $code"
-            sleep 5
-          done
-          echo "Health check failed (timeout)"
-          echo "Last response:"
-          cat /tmp/health.json || true
-          exit 1
-
-      - name: Run integration E2E (full flow)
-        if: ${{ steps.detect_py.outputs.py_dir != '' }}
-        shell: bash
-        env:
-          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
-        run: |
-          set -euo pipefail
-          RUN_FULL_FLOW=1 API_GATEWAY_URL="${API_GATEWAY_URL}" \
-            python -m unittest discover -s "${{ steps.detect_py.outputs.py_dir }}" -p "test_*.py" -v
