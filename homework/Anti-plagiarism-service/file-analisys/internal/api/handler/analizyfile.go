@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	closestVectorLimit         = 10
+	closestVectorLimit         = 30
 	plagiarismPercentThreshold = 50.0
 	matchSimilarityThreshold   = 60.0
 )
