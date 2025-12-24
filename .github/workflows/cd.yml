@@ -106,14 +106,18 @@ jobs:
             printf "%s" "$YC_B64" | base64 -d > embedding-service/internal/env-files/yandexCloud.env
           fi
 
+          # Проверка доступа к Docker (важно именно через sudo)
+          sudo -n docker version >/dev/null
+          sudo -n docker compose version >/dev/null
+
           if [ -f docker-compose.yaml ]; then
-            docker compose up -d --build
+            sudo -n docker compose up -d --build
           fi
 
-          (cd embedding-service && docker compose up -d --build)
-          (cd file-storing && docker compose up -d --build)
-          (cd file-analisys && docker compose up -d --build)
-          (cd api-gateway && docker compose up -d --build)
+          (cd embedding-service && sudo -n docker compose up -d --build)
+          (cd file-storing && sudo -n docker compose up -d --build)
+          (cd file-analisys && sudo -n docker compose up -d --build)
+          (cd api-gateway && sudo -n docker compose up -d --build)
 
-          docker image prune -f >/dev/null 2>&1 || true
+          sudo -n docker image prune -f >/dev/null 2>&1 || true
           SCRIPT
