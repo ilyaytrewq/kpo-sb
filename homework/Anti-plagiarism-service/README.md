@@ -39,6 +39,16 @@ Client ← API Gateway ← File Analysis (получение отчета)
 - **Yandex Cloud Embeddings** — генерация эмбеддингов
 - **S3-compatible storage** — хранение файлов (Yandex Object Storage / MinIO)
 - **Docker / Docker Compose** — окружение и запуск
+
+## 🔌 API Endpoints
+
+Базовый URL: `http://158.160.186.61:8080/api/v1`
+
+- `POST /works` — создать работу (assignment)
+- `POST /works/{workId}/submissions` — загрузить файл работы и запустить проверку
+- `GET /works/{workId}/reports` — получить отчеты по всем сабмитам работы
+- `GET /submissions/{submissionId}` — получить детали сабмита и отчет
+- `GET /works/{workId}/stats` — агрегированная статистика по работе
 ## 📁 Project Structure
 
 ```
@@ -127,115 +137,27 @@ oapi-codegen -generate client,types -package filestoring \
 ```
 
 ```bash
-npx @redocly/cli lint ./api-files/openapi.yaml
-npx @redocly/cli lint ./api-files/file-storing.yaml      
-npx @redocly/cli lint ./api-files/file-analisys.yaml          
-npx @redocly/cli lint ./api-files/embedding-service.yaml
-  
-```
-
-```bash
 ilyatikhonov@MacBook-Pro-Ilya api-gateway % sqlc generate
 ```
 
 
-## 🔌 API Endpoints и примеры запросов
-
-Ниже — все эндпоинты с примерами запуска. Для локальной проверки можно использовать файлы из `tests_files/`.
-
-### API Gateway (`:8080`)
-
-База: `http://localhost:8080/api/v1`  
-Health: `GET http://localhost:8080/health`
-
-```bash
-GATEWAY_URL="http://localhost:8080/api/v1"
-
-# Health
-curl -s http://localhost:8080/health
-
-# Создать работу
-curl -X POST "$GATEWAY_URL/works" \
-  -H "Content-Type: application/json" \
-  -d '{"workId":"hw-kpo-3","name":"KPO HW-3","description":"Anti-plagiarism homework"}'
-
-# Загрузить submission
-curl -X POST "$GATEWAY_URL/works/hw-kpo-3/submissions" \
-  -F "file=@tests_files/sample_short.txt"
-
-# Получить отчеты по работе
-curl "$GATEWAY_URL/works/hw-kpo-3/reports"
-
-# Получить детали submission
-curl "$GATEWAY_URL/submissions/sub-001"
-
-# Статистика по работе
-curl "$GATEWAY_URL/works/hw-kpo-3/stats"
-```
-
-### File Storing (`:8082`)
-
-База: `http://localhost:8082/api/v1`  
-Health: `GET http://localhost:8082/health`
-
-```bash
-STORING_URL="http://localhost:8082/api/v1"
-
-# Health
-curl -s http://localhost:8082/health
-
-# Загрузить файл
-curl -X POST "$STORING_URL/files/upload" \
-  -F "file=@tests_files/sample_short.txt" \
-  -F 'metadata={"workId":"hw-kpo-3","originalFileName":"sample_short.txt","contentType":"text/plain"};type=application/json'
-
-# Скачать файл
-curl -O -J "$STORING_URL/files/f47ac10b-58cc-4372-a567-0e02b2c3d479"
-
-# Метаданные файла
-curl "$STORING_URL/files/f47ac10b-58cc-4372-a567-0e02b2c3d479/info"
-```
-
-### File Analysis (`:8081`)
-
-База: `http://localhost:8081/api/v1`  
-Health: `GET http://localhost:8081/health`
-
-```bash
-ANALYSIS_URL="http://localhost:8081/api/v1"
-
-# Health
-curl -s http://localhost:8081/health
-
-# Запустить анализ
-curl -X POST "$ANALYSIS_URL/analyze" \
-  -H "Content-Type: application/json" \
-  -d '{"fileId":"f47ac10b-58cc-4372-a567-0e02b2c3d479","workId":"hw-kpo-3","submissionId":"sub-001"}'
-
-# Получить отчет по submissionId
-curl "$ANALYSIS_URL/reports/sub-001"
-
-# Получить все отчеты по работе
-curl "$ANALYSIS_URL/works/hw-kpo-3/reports"
-```
-
-### Embedding Service (`:8083`)
-
-База: `http://localhost:8083/api/v1`  
-Health: `GET http://localhost:8083/health`
-
-```bash
-EMBEDDING_URL="http://localhost:8083/api/v1"
-
-# Health
-curl -s http://localhost:8083/health
-
-# Получить эмбеддинги для чанков
-curl -X POST "$EMBEDDING_URL/embed" \
-  -H "Content-Type: application/json" \
-  -d '{"chunks":[{"chunkId":"chunk-001","text":"Hello world","chunkIndex":0},{"chunkId":"chunk-002","text":"Another chunk","chunkIndex":1}]}'
-```
-
 ## 🧩 CI/CD
 
-CI/CD добавлен.
+### CI (GitHub Actions)
+
+- Триггеры: `push` и `pull_request` в ветки `main` и `dev/hw3`.
+- Детектит Go-модули проекта и папку с Python-тестами (если есть).
+- Линт OpenAPI-спецификаций через Redocly.
+- Для каждого Go-модуля: `gofmt` (проверка), `go vet`, `go test`.
+- Для Python: `unittest` discovery (если найдена папка тестов).
+- Для `push` после тестов запускает CD и интеграционные E2E-тесты.
+
+### CD (Deploy на Yandex VPS)
+
+- Вызывается из CI на `push` и деплоит конкретный коммит.
+- Поиск базовой директории проекта по `api-gateway/docker-compose.yaml`.
+- Подготовка SSH, синхронизация кода через `rsync`:
+  - `main` → `/opt/anti-plagiarism/prod`
+  - другие ветки → `/opt/anti-plagiarism/dev`
+- На сервере: запись env-файлов из секретов, валидация `docker-compose.yaml`,
+  `docker compose up -d --build` для всех сервисов, prune старых образов.
