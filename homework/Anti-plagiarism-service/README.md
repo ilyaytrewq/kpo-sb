@@ -43,6 +43,7 @@ Client ← API Gateway ← File Analysis (получение отчета)
 ## 🔌 API Endpoints
 
 Базовый URL: `http://158.160.186.61:8080/api/v1`
+Swagger UI: `http://158.160.186.61:8088/`
 
 - `POST /works` — создать работу (assignment)
 - `POST /works/{workId}/submissions` — загрузить файл работы и запустить проверку
@@ -85,16 +86,14 @@ Client ← API Gateway ← File Analysis (получение отчета)
 └── README.md
 ```
 
+
+
 ## 🚀 Quick Start
 
 ### Запуск сервисов 
 
 ```bash
 docker compose up --build -d
-cd embedding-service && docker compose up --build -d
-cd ../file-storing && docker compose up --build -d
-cd ../file-analisys && docker compose up --build -d
-cd ../api-gateway && docker compose up --build -d
 ```
 
 ### Кодогенерация кода
