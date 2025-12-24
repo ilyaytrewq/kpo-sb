@@ -145,10 +145,5 @@ jobs:
             sudo -n docker compose up -d --build
           fi
 
-          (cd embedding-service && sudo -n docker compose up -d --build)
-          (cd file-storing && sudo -n docker compose up -d --build)
-          (cd file-analisys && sudo -n docker compose up -d --build)
-          (cd api-gateway && sudo -n docker compose up -d --build)
-
           sudo -n docker image prune -f >/dev/null 2>&1 || true
           SCRIPT
