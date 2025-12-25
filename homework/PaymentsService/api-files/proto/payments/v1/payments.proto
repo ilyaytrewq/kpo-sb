@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package payments.v1;
+
+option go_package = "github.com/ilyaytrewq/payments-service/gen/go/payments/v1;paymentsv1";
+
+
+service PaymentsService {
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc TopUp(TopUpRequest) returns (TopUpResponse);
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+}
+
+message Account {
+  string user_id = 1;
+  int64 balance = 2; // minimal currency units
+}
+
+message CreateAccountRequest {
+  string user_id = 1;
+
+  // Optional: forwarded from REST Idempotency-Key
+  string idempotency_key = 2;
+}
+
+message CreateAccountResponse {
+  Account account = 1;
+}
+
+message TopUpRequest {
+  string user_id = 1;
+  int64 amount = 2;
+
+  // Optional: forwarded from REST Idempotency-Key
+  string idempotency_key = 3;
+}
+
+message TopUpResponse {
+  Account account = 1;
+}
+
+message GetBalanceRequest {
+  string user_id = 1;
+}
+
+message GetBalanceResponse {
+  int64 balance = 1;
+}

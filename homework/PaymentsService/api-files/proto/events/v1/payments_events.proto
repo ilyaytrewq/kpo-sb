@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package events.v1;
+
+option go_package = "github.com/ilyaytrewq/payments-service/gen/go/events/v1;eventsv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Sent by Orders -> consumed by Payments
+message PaymentRequested {
+  // For idempotency/inbox: unique id for this event (uuid/ulid).
+  string event_id = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+
+  string order_id = 3;
+  string user_id = 4;
+  int64 amount = 5;
+}
+
+// Sent by Payments -> consumed by Orders
+enum PaymentResultStatus {
+  PAYMENT_RESULT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_RESULT_STATUS_SUCCESS = 1;
+  PAYMENT_RESULT_STATUS_FAIL_NO_ACCOUNT = 2;
+  PAYMENT_RESULT_STATUS_FAIL_NOT_ENOUGH_FUNDS = 3;
+  PAYMENT_RESULT_STATUS_FAIL_INTERNAL = 4;
+}
+
+message PaymentResult {
+  string event_id = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+
+  string order_id = 3;
+  string user_id = 4;
+  PaymentResultStatus status = 5;
+
+  // Optional: debug/human-readable reason
+  string reason = 6;
+}
