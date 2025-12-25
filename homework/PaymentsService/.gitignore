@@ -44,6 +44,8 @@ log/
 /**/.fleet/
 /**/.gradle/
 
+TODO.md
+
 # ===== Vim / swap =====
 *.swp
 *.swo
