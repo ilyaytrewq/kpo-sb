@@ -1,8 +1,10 @@
 version: v1
 plugins:
-  - plugin: buf.build/protocolbuffers/go
+  - name: go
     out: gen/go
     opt: paths=source_relative
-  - plugin: buf.build/grpc/go
+  - name: go-grpc
     out: gen/go
-    opt: paths=source_relative
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=false

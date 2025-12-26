@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ilyaytrewq/payments-service/order-service/internal/app"
-	"github.com/ilyaytrewq/payments-service/order-service/internal/config"
+	"github.com/ilyaytrewq/payments-service/payments-service/internal/app"
+	"github.com/ilyaytrewq/payments-service/payments-service/internal/config"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 	defer stop()
 
 	if err := app.Run(ctx, cfg); err != nil {
-		log.Println("orders service stopped with error:", err)
+		log.Println("payments service stopped with error:", err)
 		os.Exit(1)
 	}
 }

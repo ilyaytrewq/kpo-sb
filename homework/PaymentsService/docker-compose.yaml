@@ -1,0 +1,82 @@
+services:
+  broker:
+    image: apache/kafka:latest
+    container_name: broker
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      # Внутри docker-сети: broker:9092
+      # Снаружи (хост/сервер): ${HOST}:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,EXTERNAL://${HOST:-localhost}:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+
+      # single-broker настройки
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      # дефолт для авто-создаваемых топиков (мы авто-создание выключили, но пусть будет 3)
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "29092:29092"  # внешний доступ (HOST:29092)
+      - "9092:9092"    # опционально (можно убрать, если не надо с хоста)
+    volumes:
+      - ./data/kafka:/tmp/kraft-combined-logs
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server broker:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  kafka-init:
+    image: apache/kafka:latest
+    container_name: kafka-init
+    depends_on:
+      broker:
+        condition: service_healthy
+    networks:
+      - kafka-net
+    restart: "no"
+    entrypoint: ["/bin/bash", "-lc"]
+    command: |
+      set -euo pipefail
+      echo "Creating topics..."
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
+        --create --if-not-exists \
+        --topic payments.payment_requested.v1 \
+        --partitions 3 --replication-factor 1
+
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
+        --create --if-not-exists \
+        --topic payments.payment_result.v1 \
+        --partitions 3 --replication-factor 1
+
+      echo "Topics created:"
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 --list
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
+    depends_on:
+      broker:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge

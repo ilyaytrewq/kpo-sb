@@ -6,17 +6,18 @@ import (
 	"net"
 	"time"
 
-	ordersv1 "github.com/ilyaytrewq/payments-service/gen/go/orders/v1"
-	"github.com/ilyaytrewq/payments-service/order-service/internal/config"
-	"github.com/ilyaytrewq/payments-service/order-service/internal/repo/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	grpcsvc "github.com/ilyaytrewq/payments-service/order-service/internal/grpc"
-	kafkasvc "github.com/ilyaytrewq/payments-service/order-service/internal/kafka"
+	"github.com/ilyaytrewq/payments-service/payments-service/internal/config"
+	grpcsvc "github.com/ilyaytrewq/payments-service/payments-service/internal/grpc"
+	kafkasvc "github.com/ilyaytrewq/payments-service/payments-service/internal/kafka"
+	"github.com/ilyaytrewq/payments-service/payments-service/internal/repo/postgres"
+
+	paymentsv1 "github.com/ilyaytrewq/payments-service/gen/go/payments/v1"
 )
 
 func Run(ctx context.Context, cfg config.Config) error {
@@ -30,9 +31,9 @@ func Run(ctx context.Context, cfg config.Config) error {
 
 	writer := &kafka.Writer{
 		Addr:         kafka.TCP(cfg.KafkaBrokers...),
-		Topic:        cfg.TopicPaymentRequested,
-		RequiredAcks: kafka.RequireAll,
+		Topic:        cfg.TopicPaymentResult,
 		Balancer:     &kafka.Hash{},
+		RequiredAcks: kafka.RequireAll,
 		BatchTimeout: 50 * time.Millisecond,
 	}
 	defer func() {
@@ -42,20 +43,24 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}()
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     cfg.KafkaBrokers,
-		Topic:       cfg.TopicPaymentResult,
-		GroupID:     cfg.ConsumerGroupID,
-		MinBytes:    1e3,
-		MaxBytes:    10e6,
-		StartOffset: kafka.FirstOffset,
+		Brokers:        cfg.KafkaBrokers,
+		Topic:          cfg.TopicPaymentRequested,
+		GroupID:        cfg.ConsumerGroupID,
+		MinBytes:       1e3,
+		MaxBytes:       10e6,
+		CommitInterval: 0,
 	})
-	defer reader.Close()
+	defer func() {
+		if err := reader.Close(); err != nil {
+			log.Printf("failed to close reader: %v", err)
+		}
+	}()
 
 	outbox := kafkasvc.NewOutboxPublisher(repo, writer, cfg.OutboxPollInterval, cfg.OutboxBatchSize)
-	consumer := kafkasvc.NewPaymentResultConsumer(repo, reader)
+	consumer := kafkasvc.NewPaymentRequestedConsumer(repo, reader, cfg.TopicPaymentResult)
 
 	grpcServer := grpc.NewServer()
-	ordersv1.RegisterOrdersServiceServer(grpcServer, grpcsvc.NewHandlers(repo))
+	paymentsv1.RegisterPaymentsServiceServer(grpcServer, grpcsvc.NewHandlers(repo))
 	reflection.Register(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)

@@ -1,4 +1,4 @@
-module ithub.com/ilyaytrewq/payments-service/gen
+module github.com/ilyaytrewq/payments-service/gen
 
 go 1.25.4
 
