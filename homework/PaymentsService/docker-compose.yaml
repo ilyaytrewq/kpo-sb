@@ -77,6 +77,108 @@ services:
     networks:
       - kafka-net
 
+  orders-postgres:
+    image: postgres:16
+    container_name: orders-postgres
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./data/orders-postgres:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  payments-postgres:
+    image: postgres:16
+    container_name: payments-postgres
+    environment:
+      POSTGRES_DB: payments
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./data/payments-postgres:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payments"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orders-service:
+    build:
+      context: .
+      dockerfile: services/orders-service/Dockerfile
+    container_name: orders-service
+    environment:
+      ORDERS_GRPC_ADDR: ":9001"
+      ORDERS_DATABASE_URL: "postgres://postgres:postgres@orders-postgres:5432/orders?sslmode=disable"
+      KAFKA_BROKERS: "broker:9092"
+      KAFKA_TOPIC_PAYMENT_REQUESTED: "payments.payment_requested.v1"
+      KAFKA_TOPIC_PAYMENT_RESULT: "payments.payment_result.v1"
+      KAFKA_ORDERS_GROUP_ID: "orders-service"
+    depends_on:
+      broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      orders-postgres:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  payments-service:
+    build:
+      context: .
+      dockerfile: services/payments-service/Dockerfile
+    container_name: payments-service
+    environment:
+      PAYMENTS_GRPC_ADDR: ":9002"
+      PAYMENTS_DATABASE_URL: "postgres://postgres:postgres@payments-postgres:5432/payments?sslmode=disable"
+      KAFKA_BROKERS: "broker:9092"
+      KAFKA_TOPIC_PAYMENT_REQUESTED: "payments.payment_requested.v1"
+      KAFKA_TOPIC_PAYMENT_RESULT: "payments.payment_result.v1"
+      KAFKA_PAYMENTS_GROUP_ID: "payments-service"
+    depends_on:
+      broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      payments-postgres:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      GATEWAY_HTTP_ADDR: ":8080"
+      GATEWAY_BASE_PATH: "/api/v1"
+      ORDERS_GRPC_ADDR: "orders-service:9001"
+      PAYMENTS_GRPC_ADDR: "payments-service:9002"
+    depends_on:
+      orders-service:
+        condition: service_started
+      payments-service:
+        condition: service_started
+    networks:
+      - kafka-net
+
 networks:
   kafka-net:
     driver: bridge

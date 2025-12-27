@@ -31,16 +31,7 @@ func (h *Handlers) CreateAccount(ctx context.Context, req *paymentsv1.CreateAcco
 	account, err := h.repo.Q().CreateAccount(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			balance, err := h.repo.Q().GetBalance(ctx, userID)
-			if err != nil {
-				return nil, status.Error(codes.Internal, "failed to load account")
-			}
-			return &paymentsv1.CreateAccountResponse{
-				Account: &paymentsv1.Account{
-					UserId:  userID,
-					Balance: balance,
-				},
-			}, nil
+			return nil, status.Error(codes.AlreadyExists, "account already exists")
 		}
 		return nil, status.Error(codes.Internal, "failed to create account")
 	}
