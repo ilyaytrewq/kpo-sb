@@ -21,6 +21,9 @@ type Config struct {
 	OutboxBatchSize    int
 
 	ConsumerGroupID string
+
+	RedisAddr string
+	CacheTTL  time.Duration
 }
 
 func MustLoad() Config {
@@ -37,6 +40,9 @@ func MustLoad() Config {
 		OutboxBatchSize:    getenvInt("OUTBOX_BATCH_SIZE", 50),
 
 		ConsumerGroupID: getenv("KAFKA_ORDERS_GROUP_ID", "orders-service"),
+
+		RedisAddr: getenv("ORDERS_REDIS_ADDR", "redis:6379"),
+		CacheTTL:  getenvDuration("ORDERS_CACHE_TTL", 30*time.Second),
 	}
 	return cfg
 }

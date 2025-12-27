@@ -1,11 +1,12 @@
 module github.com/ilyaytrewq/payments-service/order-service
 
-go 1.25.4
+go 1.22.0
 
 require (
 	github.com/google/uuid v1.6.0
 	github.com/ilyaytrewq/payments-service/gen v0.0.0
 	github.com/jackc/pgx/v5 v5.7.6
+	github.com/redis/go-redis/v9 v9.14.0
 	github.com/segmentio/kafka-go v0.4.49
 	golang.org/x/sync v0.19.0
 	google.golang.org/grpc v1.78.0
