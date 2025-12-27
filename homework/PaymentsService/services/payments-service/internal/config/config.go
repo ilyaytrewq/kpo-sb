@@ -21,6 +21,9 @@ type Config struct {
 
 	OutboxPollInterval time.Duration
 	OutboxBatchSize    int
+
+	RedisAddr string
+	CacheTTL  time.Duration
 }
 
 func MustLoad() Config {
@@ -38,6 +41,9 @@ func MustLoad() Config {
 
 		OutboxPollInterval: getenvDuration("OUTBOX_POLL_INTERVAL", 500*time.Millisecond),
 		OutboxBatchSize:    getenvInt("OUTBOX_BATCH_SIZE", 50),
+
+		RedisAddr: getenv("PAYMENTS_REDIS_ADDR", "redis:6379"),
+		CacheTTL:  getenvDuration("PAYMENTS_CACHE_TTL", 30*time.Second),
 	}
 }
 

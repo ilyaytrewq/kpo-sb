@@ -6,7 +6,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	ordersv1 "github.com/ilyaytrewq/payments-service/gen/go/orders/v1"
+	"github.com/ilyaytrewq/payments-service/order-service/internal/cache"
 	"github.com/ilyaytrewq/payments-service/order-service/internal/config"
 	"github.com/ilyaytrewq/payments-service/order-service/internal/repo/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -42,12 +45,12 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}()
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     cfg.KafkaBrokers,
-		Topic:       cfg.TopicPaymentResult,
-		GroupID:     cfg.ConsumerGroupID,
-		MinBytes:    1e3,
-		MaxBytes:    10e6,
-		StartOffset: kafka.FirstOffset,
+		Brokers:        cfg.KafkaBrokers,
+		Topic:          cfg.TopicPaymentResult,
+		GroupID:        cfg.ConsumerGroupID,
+		MinBytes:       1e3,
+		MaxBytes:       10e6,
+		StartOffset:    kafka.FirstOffset,
 		CommitInterval: 0,
 	})
 	defer reader.Close()
@@ -55,8 +58,19 @@ func Run(ctx context.Context, cfg config.Config) error {
 	outbox := kafkasvc.NewOutboxPublisher(repo, writer, cfg.OutboxPollInterval, cfg.OutboxBatchSize)
 	consumer := kafkasvc.NewPaymentResultConsumer(repo, reader)
 
+	var cacheClient *redis.Client
+	if cfg.RedisAddr != "" {
+		cacheClient = redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+		defer func() {
+			if err := cacheClient.Close(); err != nil {
+				log.Printf("failed to close redis client: %v", err)
+			}
+		}()
+	}
+	orderCache := cache.NewOrderCache(cacheClient, cfg.CacheTTL)
+
 	grpcServer := grpc.NewServer()
-	ordersv1.RegisterOrdersServiceServer(grpcServer, grpcsvc.NewHandlers(repo))
+	ordersv1.RegisterOrdersServiceServer(grpcServer, grpcsvc.NewHandlers(repo, orderCache))
 	reflection.Register(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)

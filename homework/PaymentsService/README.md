@@ -21,10 +21,10 @@ chmod +x scripts/generate_sql.sh
 ./scripts/generate_sql.sh
 ```
 
-## Local infrastructure (Kafka + Postgres)
+## Local infrastructure (Kafka + Postgres + Redis)
 ```bash
 export HOST=localhost
-docker compose up -d broker kafka-init kafka-ui orders-postgres payments-postgres
+docker compose up -d broker kafka-init kafka-ui orders-postgres payments-postgres redis
 ```
 
 ## Migrations

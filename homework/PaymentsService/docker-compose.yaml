@@ -77,6 +77,19 @@ services:
     networks:
       - kafka-net
 
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   orders-postgres:
     image: postgres:16
     container_name: orders-postgres
@@ -127,12 +140,15 @@ services:
       KAFKA_TOPIC_PAYMENT_REQUESTED: "payments.payment_requested.v1"
       KAFKA_TOPIC_PAYMENT_RESULT: "payments.payment_result.v1"
       KAFKA_ORDERS_GROUP_ID: "orders-service"
+      ORDERS_REDIS_ADDR: "redis:6379"
     depends_on:
       broker:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
       orders-postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - kafka-net
@@ -149,12 +165,15 @@ services:
       KAFKA_TOPIC_PAYMENT_REQUESTED: "payments.payment_requested.v1"
       KAFKA_TOPIC_PAYMENT_RESULT: "payments.payment_result.v1"
       KAFKA_PAYMENTS_GROUP_ID: "payments-service"
+      PAYMENTS_REDIS_ADDR: "redis:6379"
     depends_on:
       broker:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
       payments-postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - kafka-net

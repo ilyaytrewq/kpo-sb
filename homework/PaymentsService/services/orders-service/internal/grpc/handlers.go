@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/ilyaytrewq/payments-service/order-service/internal/cache"
 	"github.com/ilyaytrewq/payments-service/order-service/internal/repo/postgres/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -23,11 +24,12 @@ import (
 
 type Handlers struct {
 	ordersv1.UnimplementedOrdersServiceServer
-	repo *postgres.Repo
+	repo  *postgres.Repo
+	cache *cache.OrderCache
 }
 
-func NewHandlers(repo *postgres.Repo) *Handlers {
-	return &Handlers{repo: repo}
+func NewHandlers(repo *postgres.Repo, cache *cache.OrderCache) *Handlers {
+	return &Handlers{repo: repo, cache: cache}
 }
 
 func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderRequest) (*ordersv1.CreateOrderResponse, error) {
@@ -155,6 +157,22 @@ func (h *Handlers) GetOrder(ctx context.Context, req *ordersv1.GetOrderRequest) 
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid order_id")
 	}
+
+	if cached, err := h.cache.Get(ctx, req.GetOrderId()); err == nil && cached != nil {
+		if cached.UserID == req.GetUserId() {
+			return &ordersv1.GetOrderResponse{
+				Order: &ordersv1.Order{
+					OrderId:     cached.OrderID,
+					UserId:      cached.UserID,
+					Amount:      cached.Amount,
+					Description: cached.Description,
+					Status:      mapOrderStatus(cached.Status),
+					CreatedAt:   timestamppb.New(cached.CreatedAt),
+				},
+			}, nil
+		}
+	}
+
 	r, err := h.repo.Q().GetOrder(ctx, db.GetOrderParams{
 		OrderID: pgtype.UUID{
 			Bytes: oid,
@@ -164,6 +182,17 @@ func (h *Handlers) GetOrder(ctx context.Context, req *ordersv1.GetOrderRequest) 
 	})
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "order not found")
+	}
+
+	if h.cache != nil {
+		_ = h.cache.Set(ctx, cache.Order{
+			OrderID:     r.OrderID.String(),
+			UserID:      r.UserID,
+			Amount:      r.Amount,
+			Description: r.Description,
+			Status:      r.Status,
+			CreatedAt:   r.CreatedAt.Time,
+		})
 	}
 
 	return &ordersv1.GetOrderResponse{

@@ -6,12 +6,15 @@ import (
 	"net"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/ilyaytrewq/payments-service/payments-service/internal/cache"
 	"github.com/ilyaytrewq/payments-service/payments-service/internal/config"
 	grpcsvc "github.com/ilyaytrewq/payments-service/payments-service/internal/grpc"
 	kafkasvc "github.com/ilyaytrewq/payments-service/payments-service/internal/kafka"
@@ -59,8 +62,19 @@ func Run(ctx context.Context, cfg config.Config) error {
 	outbox := kafkasvc.NewOutboxPublisher(repo, writer, cfg.OutboxPollInterval, cfg.OutboxBatchSize)
 	consumer := kafkasvc.NewPaymentRequestedConsumer(repo, reader, cfg.TopicPaymentResult)
 
+	var cacheClient *redis.Client
+	if cfg.RedisAddr != "" {
+		cacheClient = redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+		defer func() {
+			if err := cacheClient.Close(); err != nil {
+				log.Printf("failed to close redis client: %v", err)
+			}
+		}()
+	}
+	balanceCache := cache.NewBalanceCache(cacheClient, cfg.CacheTTL)
+
 	grpcServer := grpc.NewServer()
-	paymentsv1.RegisterPaymentsServiceServer(grpcServer, grpcsvc.NewHandlers(repo))
+	paymentsv1.RegisterPaymentsServiceServer(grpcServer, grpcsvc.NewHandlers(repo, balanceCache))
 	reflection.Register(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)
