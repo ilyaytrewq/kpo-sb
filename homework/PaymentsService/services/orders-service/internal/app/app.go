@@ -48,6 +48,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 		MinBytes:    1e3,
 		MaxBytes:    10e6,
 		StartOffset: kafka.FirstOffset,
+		CommitInterval: 0,
 	})
 	defer reader.Close()
 

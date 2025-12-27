@@ -1,6 +1,6 @@
 module github.com/ilyaytrewq/payments-service/payments-service
 
-go 1.25.4
+go 1.22.0
 
 require (
 	github.com/ilyaytrewq/payments-service/gen v0.0.0
