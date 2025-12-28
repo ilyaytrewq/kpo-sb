@@ -1,0 +1,226 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["main", "dev/hw4"]
+  pull_request:
+    branches: ["main", "dev/hw4"]
+
+jobs:
+  detect:
+    name: Detect Go modules
+    runs-on: ubuntu-22.04
+    outputs:
+      modules: ${{ steps.detect.outputs.modules }}
+      py_dir: ${{ steps.detect.outputs.py_dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, json, pathlib
+
+          root = pathlib.Path(".").resolve()
+
+          anti = ""
+          for p in root.rglob("api-gateway/go.mod"):
+              if ".git" in p.parts:
+                  continue
+              anti = str(p.parent.parent.relative_to(root))
+              break
+
+          modules = []
+          if anti:
+              cand = [
+                  f"{anti}/api-gateway",
+                  f"{anti}/file-storing",
+                  f"{anti}/file-analisys",
+                  f"{anti}/embedding-service",
+              ]
+              modules = [m for m in cand if (root / m / "go.mod").exists()]
+          else:
+              for gm in root.rglob("go.mod"):
+                  if ".git" in gm.parts or "vendor" in gm.parts:
+                      continue
+                  modules.append(str(gm.parent.relative_to(root)))
+              modules = sorted(set(modules))
+
+          py_dir = ""
+          if anti:
+              t = root / anti / "tests"
+              if t.exists():
+                  py_dir = str(t.relative_to(root))
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"modules={json.dumps(modules)}\n")
+              f.write(f"py_dir={py_dir}\n")
+
+          print("modules =", modules)
+          print("py_dir =", py_dir)
+          PY
+
+  openapi-lint:
+    name: OpenAPI lint (Redocly)
+    runs-on: ubuntu-22.04
+    needs: [detect]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint OpenAPI specs (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          lint_one() {
+            local f="$1"
+            if [ -f "$f" ]; then
+              echo "Linting: $f"
+              npx --yes @redocly/cli lint "$f"
+            else
+              echo "Skip (not found): $f"
+            fi
+          }
+
+          lint_one ./api-files/openapi.yaml
+          lint_one ./api-files/file-storing.yaml
+          lint_one ./api-files/file-analisys.yaml
+          lint_one ./api-files/embedding-service.yaml
+
+  go-unit:
+    name: Go tests (${{ matrix.module }})
+    runs-on: ubuntu-22.04
+    needs: [detect, openapi-lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.detect.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure go.sum exists (for cache)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "${{ matrix.module }}/go.sum" ]; then
+            touch "${{ matrix.module }}/go.sum"
+          fi
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: gofmt (check)
+        working-directory: ${{ matrix.module }}
+        run: |
+          set -euo pipefail
+          test -z "$(gofmt -l .)"
+
+      - name: go vet
+        working-directory: ${{ matrix.module }}
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: go test
+        working-directory: ${{ matrix.module }}
+        run: |
+          set -euo pipefail
+          go test ./... -count=1 -timeout=10m
+
+  python-unit:
+    name: Python tests (local, if present)
+    runs-on: ubuntu-22.04
+    needs: [detect, go-unit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run local unittest discovery (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${{ needs.detect.outputs.py_dir }}" ]; then
+            echo "No python tests dir detected, skipping."
+            exit 0
+          fi
+          python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
+
+  deploy:
+    name: Deploy (after local tests)
+    needs: [python-unit]
+    if: ${{ github.event_name == 'push' }}
+    uses: ./.github/workflows/cd.yml
+    secrets: inherit
+    with:
+      checkout_ref: ${{ github.sha }}
+      deploy_branch: ${{ github.ref_name }}
+
+  integration-tests:
+    name: Integration tests (after deploy)
+    runs-on: ubuntu-22.04
+    needs: [deploy, detect]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Wait for gateway /health
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          url="${API_GATEWAY_URL}/health"
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /tmp/health.json -w "%{http_code}" "$url" || true)"
+            if [ "$code" = "200" ]; then
+              cat /tmp/health.json || true
+              exit 0
+            fi
+            sleep 5
+          done
+          cat /tmp/health.json || true
+          exit 1
+
+      - name: Run integration E2E (pytest if present, else unittest)
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          if [ -z "${{ needs.detect.outputs.py_dir }}" ]; then
+            echo "No tests dir detected, skipping integration tests."
+            exit 0
+          fi
+
+          python -m pip install -U pip
+
+          # если у тебя pytest-тесты (как мы писали) — запустим pytest
+          if [ -f "${{ needs.detect.outputs.py_dir }}/requirements.txt" ]; then
+            python -m pip install -r "${{ needs.detect.outputs.py_dir }}/requirements.txt"
+          else
+            python -m pip install pytest requests
+          fi
+
+          if python -c "import pytest" >/dev/null 2>&1; then
+            # твои тесты читают GZ_BASE_URL
+            GZ_BASE_URL="${API_GATEWAY_URL}/api/v1" pytest -q "${{ needs.detect.outputs.py_dir }}"
+          else
+            RUN_FULL_FLOW=1 API_GATEWAY_URL="${API_GATEWAY_URL}" \
+              python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
+          fi
