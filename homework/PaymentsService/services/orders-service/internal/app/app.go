@@ -69,7 +69,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}
 	orderCache := cache.NewOrderCache(cacheClient, cfg.CacheTTL)
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpcUnaryLogger()))
 	ordersv1.RegisterOrdersServiceServer(grpcServer, grpcsvc.NewHandlers(repo, orderCache))
 	reflection.Register(grpcServer)
 
