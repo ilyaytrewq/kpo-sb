@@ -46,22 +46,24 @@ services:
     networks:
       - kafka-net
     restart: "no"
-    entrypoint: ["/bin/bash", "-lc"]
-    command: |
-      set -euo pipefail
-      echo "Creating topics..."
-      /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
-        --create --if-not-exists \
-        --topic payments.payment_requested.v1 \
-        --partitions 3 --replication-factor 1
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+          echo "Creating topics..."
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
+            --create --if-not-exists \
+            --topic payments.payment_requested.v1 \
+            --partitions 3 --replication-factor 1
 
-      /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
-        --create --if-not-exists \
-        --topic payments.payment_result.v1 \
-        --partitions 3 --replication-factor 1
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
+            --create --if-not-exists \
+            --topic payments.payment_result.v1 \
+            --partitions 3 --replication-factor 1
 
-      echo "Topics created:"
-      /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 --list
+          echo "Topics created:"
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 --list
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -109,6 +111,25 @@ services:
       timeout: 5s
       retries: 10
 
+  orders-migrate:
+    image: postgres:16
+    container_name: orders-migrate
+    depends_on:
+      orders-postgres:
+        condition: service_healthy
+    networks:
+      - kafka-net
+    volumes:
+      - ./services/orders-service/db/migrations:/migrations:ro
+    restart: "no"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+          psql "postgres://postgres:postgres@orders-postgres:5432/orders?sslmode=disable" \
+            -f /migrations/0001_init.up.sql
+
   payments-postgres:
     image: postgres:16
     container_name: payments-postgres
@@ -128,6 +149,25 @@ services:
       timeout: 5s
       retries: 10
 
+  payments-migrate:
+    image: postgres:16
+    container_name: payments-migrate
+    depends_on:
+      payments-postgres:
+        condition: service_healthy
+    networks:
+      - kafka-net
+    volumes:
+      - ./services/payments-service/db/migrations:/migrations:ro
+    restart: "no"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+          psql "postgres://postgres:postgres@payments-postgres:5432/payments?sslmode=disable" \
+            -f /migrations/0001_init.up.sql
+
   orders-service:
     build:
       context: .
@@ -145,6 +185,8 @@ services:
       broker:
         condition: service_healthy
       kafka-init:
+        condition: service_completed_successfully
+      orders-migrate:
         condition: service_completed_successfully
       orders-postgres:
         condition: service_healthy
@@ -170,6 +212,8 @@ services:
       broker:
         condition: service_healthy
       kafka-init:
+        condition: service_completed_successfully
+      payments-migrate:
         condition: service_completed_successfully
       payments-postgres:
         condition: service_healthy
@@ -197,6 +241,21 @@ services:
         condition: service_started
     networks:
       - kafka-net
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: swagger-ui
+    ports:
+      - "8088:8080"
+    environment:
+      SWAGGER_JSON: /api-files/openapi/api-gateway.yaml
+    volumes:
+      - ./api-files/openapi/api-gateway.yaml:/api-files/openapi/api-gateway.yaml:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - kafka-net
+
 
 networks:
   kafka-net:

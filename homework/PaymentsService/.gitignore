@@ -43,7 +43,6 @@ log/
 /**/cmake-build-*/
 /**/.fleet/
 /**/.gradle/
-
 TODO.md
 
 # ===== Vim / swap =====
@@ -59,6 +58,17 @@ TODO.md
 *.key
 *.crt
 
+data/
+.git/
+**/*.log
+**/.DS_Store
+**/bin/
+**/dist/
+**/tmp/
+**/.idea/
+**/.vscode/
+
+
 # ===== Docker / compose local overrides =====
 docker-compose.override.yml
 
@@ -72,3 +82,5 @@ docker-compose.override.yml
 # ===== Temporary =====
 tmp/
 temp/
+data/
+.gocache/

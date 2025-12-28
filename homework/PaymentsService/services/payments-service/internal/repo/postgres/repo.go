@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/jackc/pgx/v5"
@@ -25,19 +26,21 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 func (r *Repo) Q() *db.Queries      { return r.q }
 func (r *Repo) Pool() *pgxpool.Pool { return r.pool }
 
-func (r *Repo) WithTx(ctx context.Context, fn func(tx pgx.Tx, q *db.Queries) error) error {
+func (r *Repo) WithTx(ctx context.Context, fn func(tx pgx.Tx, q *db.Queries) error) (err error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := tx.Rollback(ctx); err != nil {
-			log.Println("failed to rollback transaction:", err)
+		if err != nil {
+			if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+				log.Println("failed to rollback transaction:", rbErr)
+			}
 		}
 	}()
 
 	qtx := db.New(tx)
-	if err := fn(tx, qtx); err != nil {
+	if err = fn(tx, qtx); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

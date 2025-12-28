@@ -2,11 +2,14 @@ package app
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -37,6 +40,45 @@ func Run(ctx context.Context, cfg config.Config) error {
 	)
 
 	router := chi.NewRouter()
+
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{
+			"http://localhost:8088",
+			"http://127.0.0.1:8088",
+			"http://localhost:8080",
+			"http://127.0.0.1:8080",
+		},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Accept",
+			"Authorization",
+			"Content-Type",
+			"X-CSRF-Token",
+			"X-User-Id",
+			"Idempotency-Key",
+		},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, cfg.BasePath) {
+				if strings.TrimSpace(r.Header.Get("Idempotency-Key")) == "" {
+					userID := r.Header.Get("X-User-Id")
+					handler.WriteBadRequest(w, userID, errors.New("idempotency key is required"))
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Важно: preflight OPTIONS должен матчиться роутером, иначе будет 404 и "Failed to fetch"
+	router.Options("/*", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 
 	gateway.HandlerWithOptions(apiHandler, gateway.ChiServerOptions{
 		BaseURL:    cfg.BasePath,

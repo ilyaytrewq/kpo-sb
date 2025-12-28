@@ -60,11 +60,12 @@ components:
     IdempotencyKeyHeader:
       name: Idempotency-Key
       in: header
-      required: false
-      description: Optional idempotency key for safe retries of POST requests.
+      required: true
+      description: Required idempotency key for safe retries of POST requests.
       schema:
         type: string
         minLength: 1
+
 
     OrderIdPath:
       name: orderId

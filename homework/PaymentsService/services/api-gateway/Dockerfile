@@ -1,18 +1,35 @@
-FROM golang:1.22 AS builder
+FROM golang:1.25.4 AS builder
 
 WORKDIR /src
 
-COPY go.work go.work.sum ./
+ENV GOWORK=off
+
+# COPY go.work go.work.sum ./
 COPY gen ./gen
+
+COPY services/api-gateway/go.mod services/api-gateway/go.sum ./services/api-gateway/
+WORKDIR /src/services/api-gateway
+RUN go mod download
+
+WORKDIR /src
 COPY services/api-gateway ./services/api-gateway
 
 WORKDIR /src/services/api-gateway
-RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/api-gateway ./cmd
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/main.go
 
-FROM alpine:3.20
-RUN adduser -D -g '' appuser
-USER appuser
-COPY --from=builder /bin/api-gateway /usr/local/bin/api-gateway
 
-ENTRYPOINT ["/usr/local/bin/api-gateway"]
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /out/app /app/app
+
+CMD ["/app/app"]
+
+# я люблю илюшууу мяумяу лялялялял 
