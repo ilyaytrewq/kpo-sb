@@ -25,34 +25,21 @@ jobs:
 
           root = pathlib.Path(".").resolve()
 
-          anti = ""
-          for p in root.rglob("api-gateway/go.mod"):
-              if ".git" in p.parts:
-                  continue
-              anti = str(p.parent.parent.relative_to(root))
-              break
-
+          # Collect ALL Go modules in the repo.
+          # Previous logic was hardcoded for a specific repo layout and could miss
+          # modules like services/orders-service and services/payments-service.
           modules = []
-          if anti:
-              cand = [
-                  f"{anti}/api-gateway",
-                  f"{anti}/file-storing",
-                  f"{anti}/file-analisys",
-                  f"{anti}/embedding-service",
-              ]
-              modules = [m for m in cand if (root / m / "go.mod").exists()]
-          else:
-              for gm in root.rglob("go.mod"):
-                  if ".git" in gm.parts or "vendor" in gm.parts:
-                      continue
-                  modules.append(str(gm.parent.relative_to(root)))
-              modules = sorted(set(modules))
+          for gm in root.rglob("go.mod"):
+              if ".git" in gm.parts or "vendor" in gm.parts:
+                  continue
+              modules.append(str(gm.parent.relative_to(root)))
+          modules = sorted(set(modules))
 
+          # Optional python tests directory (convention: ./tests)
           py_dir = ""
-          if anti:
-              t = root / anti / "tests"
-              if t.exists():
-                  py_dir = str(t.relative_to(root))
+          t = root / "tests"
+          if t.exists():
+              py_dir = str(t.relative_to(root))
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"modules={json.dumps(modules)}\n")
