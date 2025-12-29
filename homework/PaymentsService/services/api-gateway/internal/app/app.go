@@ -53,6 +53,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 			"http://127.0.0.1:8088",
 			"http://localhost:8080",
 			"http://127.0.0.1:8080",
+			"http://158.160.219.201:8088",
 		},
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{
