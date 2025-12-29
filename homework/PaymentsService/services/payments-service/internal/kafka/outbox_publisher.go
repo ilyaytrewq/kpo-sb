@@ -31,8 +31,9 @@ func (p *OutboxPublisher) Run(ctx context.Context) error {
 	logger.Info("outbox publisher run start", "interval", p.interval.String(), "batch", p.batch)
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
-	defer logger.Info("outbox publisher stopped", "duration", time.Since(start))
-
+	defer func() {
+		logger.Info("outbox publisher stopped", "duration", time.Since(start))
+	}
 	for {
 		select {
 		case <-ctx.Done():
