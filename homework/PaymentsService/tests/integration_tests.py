@@ -11,7 +11,7 @@ import urllib.request
 
 DEFAULT_BASE_URL = "http://158.160.219.201:8080/api/v1"
 
-
+#
 def parse_base_url() -> str:
     base = os.getenv("BASE_URL", DEFAULT_BASE_URL)
     args = [sys.argv[0]]
