@@ -157,7 +157,7 @@ func (h *Handlers) TopUp(ctx context.Context, req *paymentsv1.TopUpRequest) (res
 		balance     int64
 		updateCache bool
 	)
-	err := h.repo.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
+	err = h.repo.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
 		inserted, err := q.InsertTopupIdempotency(ctx, db.InsertTopupIdempotencyParams{
 			UserID:         userID,
 			IdempotencyKey: idemKey,
