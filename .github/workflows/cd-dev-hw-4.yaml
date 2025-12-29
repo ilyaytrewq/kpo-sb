@@ -132,6 +132,7 @@ jobs:
           fi
 
           if [ -f docker-compose.yaml ]; then
+            sudo docker compose down
             sudo -n docker compose -f docker-compose.yaml config >/dev/null
             sudo -n docker compose -f docker-compose.yaml up -d --build
           elif [ -f docker-compose.yml ]; then
