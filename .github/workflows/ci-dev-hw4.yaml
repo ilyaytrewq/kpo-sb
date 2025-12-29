@@ -218,4 +218,4 @@ jobs:
             exit 0
           fi
           RUN_FULL_FLOW=1 API_GATEWAY_URL="${API_GATEWAY_URL}" \
-            python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
+            python tests/integration_tests.py
