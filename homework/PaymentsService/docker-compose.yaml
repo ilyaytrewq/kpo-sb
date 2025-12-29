@@ -1,0 +1,277 @@
+services:
+  broker:
+    image: apache/kafka:latest
+    container_name: broker
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,EXTERNAL://${HOST:-localhost}:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "29092:29092"
+      - "9092:9092" 
+    volumes:
+      - ./data/kafka:/tmp/kraft-combined-logs
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server broker:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  kafka-init:
+    image: apache/kafka:latest
+    container_name: kafka-init
+    depends_on:
+      broker:
+        condition: service_healthy
+    networks:
+      - kafka-net
+    restart: "no"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+          echo "Creating topics..."
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
+            --create --if-not-exists \
+            --topic payments.payment_requested.v1 \
+            --partitions 3 --replication-factor 1
+
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 \
+            --create --if-not-exists \
+            --topic payments.payment_result.v1 \
+            --partitions 3 --replication-factor 1
+
+          echo "Topics created:"
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:9092 --list
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
+    depends_on:
+      broker:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orders-postgres:
+    image: postgres:16
+    container_name: orders-postgres
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - orders_db_data:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orders-migrate:
+    image: postgres:16
+    container_name: orders-migrate
+    depends_on:
+      orders-postgres:
+        condition: service_healthy
+    networks:
+      - kafka-net
+    volumes:
+      - ./services/orders-service/db/migrations:/migrations:ro
+    restart: "no"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+          psql "postgres://postgres:postgres@orders-postgres:5432/orders?sslmode=disable" \
+            -f /migrations/0001_init.up.sql
+
+  payments-postgres:
+    image: postgres:16
+    container_name: payments-postgres
+    environment:
+      POSTGRES_DB: payments
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - payments_db_data:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payments"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  payments-migrate:
+    image: postgres:16
+    container_name: payments-migrate
+    depends_on:
+      payments-postgres:
+        condition: service_healthy
+    networks:
+      - kafka-net
+    volumes:
+      - ./services/payments-service/db/migrations:/migrations:ro
+    restart: "no"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+          psql "postgres://postgres:postgres@payments-postgres:5432/payments?sslmode=disable" \
+            -f /migrations/0001_init.up.sql
+
+  orders-service:
+    build:
+      context: .
+      dockerfile: services/orders-service/Dockerfile
+    container_name: orders-service
+    environment:
+      ORDERS_GRPC_ADDR: ":9001"
+      ORDERS_DATABASE_URL: "postgres://postgres:postgres@orders-postgres:5432/orders?sslmode=disable"
+      KAFKA_BROKERS: "broker:9092"
+      KAFKA_TOPIC_PAYMENT_REQUESTED: "payments.payment_requested.v1"
+      KAFKA_TOPIC_PAYMENT_RESULT: "payments.payment_result.v1"
+      KAFKA_ORDERS_GROUP_ID: "orders-service"
+      ORDERS_REDIS_ADDR: "redis:6379"
+    depends_on:
+      broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      orders-migrate:
+        condition: service_completed_successfully
+      orders-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  payments-service:
+    build:
+      context: .
+      dockerfile: services/payments-service/Dockerfile
+    container_name: payments-service
+    environment:
+      PAYMENTS_GRPC_ADDR: ":9002"
+      PAYMENTS_DATABASE_URL: "postgres://postgres:postgres@payments-postgres:5432/payments?sslmode=disable"
+      KAFKA_BROKERS: "broker:9092"
+      KAFKA_TOPIC_PAYMENT_REQUESTED: "payments.payment_requested.v1"
+      KAFKA_TOPIC_PAYMENT_RESULT: "payments.payment_result.v1"
+      KAFKA_PAYMENTS_GROUP_ID: "payments-service"
+      PAYMENTS_REDIS_ADDR: "redis:6379"
+    depends_on:
+      broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      payments-migrate:
+        condition: service_completed_successfully
+      payments-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      GATEWAY_HTTP_ADDR: ":8080"
+      GATEWAY_BASE_PATH: "/api/v1"
+      ORDERS_GRPC_ADDR: "orders-service:9001"
+      PAYMENTS_GRPC_ADDR: "payments-service:9002"
+    depends_on:
+      orders-service:
+        condition: service_started
+      payments-service:
+        condition: service_started
+    networks:
+      - kafka-net
+    
+
+  frontend:
+      build:
+        context: .
+        dockerfile: services/frontend/Dockerfile
+      container_name: frontend
+      ports:
+        - "3000:8080"
+      depends_on:
+        api-gateway:
+          condition: service_started
+      networks:
+        - kafka-net
+
+
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: swagger-ui
+    ports:
+      - "8088:8080"
+    environment:
+      SWAGGER_JSON: /api-files/openapi/api-gateway.yaml
+    volumes:
+      - ./api-files/openapi/api-gateway.yaml:/api-files/openapi/api-gateway.yaml:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge
+
+volumes:
+  orders_db_data:
+  payments_db_data:
