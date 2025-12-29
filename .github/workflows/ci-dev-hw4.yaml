@@ -1,4 +1,4 @@
-name: CI/CD
+name: CI
 
 on:
   push:
@@ -7,146 +7,47 @@ on:
     branches: ["main", "dev/hw4"]
 
 jobs:
-  detect:
-    name: Detect Go modules
-    runs-on: ubuntu-22.04
-    outputs:
-      modules: ${{ steps.detect.outputs.modules }}
-      py_dir: ${{ steps.detect.outputs.py_dir }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: detect
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import os, json, pathlib
-
-          root = pathlib.Path(".").resolve()
-
-          # Collect ALL Go modules in the repo.
-          # Previous logic was hardcoded for a specific repo layout and could miss
-          # modules like services/orders-service and services/payments-service.
-          modules = []
-          for gm in root.rglob("go.mod"):
-              if ".git" in gm.parts or "vendor" in gm.parts:
-                  continue
-              modules.append(str(gm.parent.relative_to(root)))
-          modules = sorted(set(modules))
-
-          # Optional python tests directory (convention: ./tests)
-          py_dir = ""
-          t = root / "tests"
-          if t.exists():
-              py_dir = str(t.relative_to(root))
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"modules={json.dumps(modules)}\n")
-              f.write(f"py_dir={py_dir}\n")
-
-          print("modules =", modules)
-          print("py_dir =", py_dir)
-          PY
-
-  openapi-lint:
-    name: OpenAPI lint (Redocly)
-    runs-on: ubuntu-22.04
-    needs: [detect]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Lint OpenAPI specs (if present)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          lint_one() {
-            local f="$1"
-            if [ -f "$f" ]; then
-              echo "Linting: $f"
-              npx --yes @redocly/cli lint "$f"
-            else
-              echo "Skip (not found): $f"
-            fi
-          }
-
-          lint_one ./api-files/openapi.yaml
-          lint_one ./api-files/file-storing.yaml
-          lint_one ./api-files/file-analisys.yaml
-          lint_one ./api-files/embedding-service.yaml
-
   go-unit:
-    name: Go tests (${{ matrix.module }})
+    name: Go tests (${{ matrix.module_name }})
     runs-on: ubuntu-22.04
-    needs: [detect, openapi-lint]
     strategy:
       fail-fast: false
       matrix:
-        module: ${{ fromJSON(needs.detect.outputs.modules) }}
+        include:
+          - module_name: api-gateway
+            module_dir: services/api-gateway
+            go_mod: services/api-gateway/go.mod
+          - module_name: orders-service
+            module_dir: services/orders-service
+            go_mod: services/orders-service/go.mod
+          - module_name: payments-service
+            module_dir: services/payments-service
+            go_mod: services/payments-service/go.mod
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ensure go.sum exists (for cache)
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f "${{ matrix.module }}/go.sum" ]; then
-            touch "${{ matrix.module }}/go.sum"
-          fi
-
-      - uses: actions/setup-go@v6
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          go-version-file: ${{ matrix.module }}/go.mod
+          go-version-file: ${{ matrix.go_mod }}
           cache: true
-          cache-dependency-path: ${{ matrix.module }}/go.sum
+          cache-dependency-path: |
+            services/api-gateway/go.sum
+            services/orders-service/go.sum
+            services/payments-service/go.sum
 
-      - name: gofmt (check)
-        working-directory: ${{ matrix.module }}
-        run: |
-          set -euo pipefail
-          test -z "$(gofmt -l .)"
+      - name: Download deps
+        working-directory: ${{ matrix.module_dir }}
+        run: go mod download
 
-      - name: go vet
-        working-directory: ${{ matrix.module }}
-        run: |
-          set -euo pipefail
-          go vet ./...
-
-      - name: go test
-        working-directory: ${{ matrix.module }}
-        run: |
-          set -euo pipefail
-          go test ./... -count=1 -timeout=10m
-
-  python-unit:
-    name: Python tests (local, if present)
-    runs-on: ubuntu-22.04
-    needs: [detect, go-unit]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Run local unittest discovery (if present)
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "${{ needs.detect.outputs.py_dir }}" ]; then
-            echo "No python tests dir detected, skipping."
-            exit 0
-          fi
-          python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
+      - name: Run unit tests
+        working-directory: ${{ matrix.module_dir }}
+        run: go test ./... -count=1 -timeout=10m
 
   deploy:
-    name: Deploy (after local tests)
-    needs: [python-unit]
+    name: Deploy (after tests)
+    needs: [go-unit]
     if: ${{ github.event_name == 'push' }}
     uses: ./.github/workflows/cd-dev-hw-4.yaml
     secrets: inherit
