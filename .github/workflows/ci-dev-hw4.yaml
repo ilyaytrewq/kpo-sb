@@ -192,7 +192,7 @@ jobs:
       - name: Wait for gateway /health
         shell: bash
         env:
-          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST_HW4 }}:8080
         run: |
           set -euo pipefail
           url="${API_GATEWAY_URL}/health"
@@ -210,7 +210,7 @@ jobs:
       - name: Run integration E2E (full flow)
         shell: bash
         env:
-          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST_HW4 }}:8080
         run: |
           set -euo pipefail
           if [ -z "${{ needs.detect.outputs.py_dir }}" ]; then
