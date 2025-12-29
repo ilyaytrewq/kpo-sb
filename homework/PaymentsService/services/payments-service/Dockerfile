@@ -2,9 +2,6 @@ FROM golang:1.25.4 AS builder
 
 WORKDIR /src
 
-ENV GOWORK=off
-
-# COPY go.work go.work.sum ./
 COPY gen ./gen
 
 COPY services/payments-service/go.mod services/payments-service/go.sum ./services/payments-service/
