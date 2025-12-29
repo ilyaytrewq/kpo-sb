@@ -10,7 +10,7 @@ COPY services/frontend/src ./src
 RUN npm install --no-audit --no-fund
 RUN npm run build
 
-# ---------- run ----------
+# ---------- run -----------
 FROM nginx:alpine
 COPY services/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
