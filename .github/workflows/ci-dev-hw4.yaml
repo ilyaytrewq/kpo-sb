@@ -21,25 +21,42 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import os, json, sys
+          import os, json, pathlib, sys
 
-          # Run Go tests only for these 3 microservices.
-          modules = [
-              "services/api-gateway",
-              "services/orders-service",
-              "services/payments-service",
-          ]
+          root = pathlib.Path(".").resolve()
 
-          missing = [m for m in modules if not os.path.isfile(os.path.join(m, "go.mod"))]
+          # We want to run Go tests ONLY for these 3 microservices, wherever they are located in the repo.
+          targets = ["api-gateway", "orders-service", "payments-service"]
+          modules = []
+          missing = []
+
+          for t in targets:
+              hits = sorted(root.rglob(f"{t}/go.mod"), key=lambda p: len(p.parts))
+              if not hits:
+                  missing.append(t)
+                  continue
+              # pick the closest one to repo root (shortest path)
+              modules.append(str(hits[0].parent.relative_to(root)))
+
           if missing:
-              print("Expected go.mod not found in:", ", ".join(missing))
+              print("Could not find go.mod for:", ", ".join(missing))
+              print("go.mod files found in repo:")
+              for gm in sorted(root.rglob("go.mod"), key=lambda p: str(p)):
+                  if ".git" in gm.parts or "vendor" in gm.parts:
+                      continue
+                  print(" -", gm.relative_to(root))
               sys.exit(1)
 
-          py_dir = "tests" if os.path.isdir("tests") else ""
+          modules = sorted(set(modules))
 
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+          py_dir = "tests" if (root / "tests").is_dir() else ""
+
+          out = os.environ["GITHUB_OUTPUT"]
+          with open(out, "a") as f:
               f.write(f"modules={json.dumps(modules)}\n")
               f.write(f"py_dir={py_dir}\n")
+
+          print("Selected Go modules:", modules)
           PY
 
   openapi-lint:
@@ -88,6 +105,14 @@ jobs:
         module: ${{ fromJSON(needs.detect.outputs.modules) }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify module path
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Matrix module: ${{ matrix.module }}"
+          ls -la "${{ matrix.module }}"
+          test -f "${{ matrix.module }}/go.mod"
 
       - name: Ensure go.sum exists (for cache)
         shell: bash
