@@ -12,8 +12,7 @@ WORKDIR /src
 COPY services/payments-service ./services/payments-service
 
 WORKDIR /src/services/payments-service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/main.go
+RUN go build -o /out/app ./cmd/main.go
 
 
 FROM debian:bookworm-slim

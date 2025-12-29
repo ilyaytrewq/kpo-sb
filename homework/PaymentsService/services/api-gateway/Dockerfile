@@ -12,8 +12,7 @@ WORKDIR /src
 COPY services/api-gateway ./services/api-gateway
 
 WORKDIR /src/services/api-gateway
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/main.go
+RUN go build -o /out/app ./cmd/main.go
 
 
 FROM debian:bookworm-slim
