@@ -14,12 +14,12 @@ and exactly-once guarantees via transactional outbox/inbox and idempotency keys.
 - sqlc, oapi-codegen, Protobuf
 - React + Vite (frontend)
 
-## Public endpoints (host 158.160.211.103)
-- API Gateway (HTTP): http://158.160.211.103:8080/api/v1
-- Swagger UI: http://158.160.211.103:8088
-- Kafka UI: http://158.160.211.103:8085
-- Frontend: http://158.160.211.103:3000
-- Kafka broker (external): 158.160.211.103:29092
+## Public endpoints (host 158.160.219.201)
+- API Gateway (HTTP): http://158.160.219.201:8080/api/v1
+- Swagger UI: http://158.160.219.201:8088
+- Kafka UI: http://158.160.219.201:8085
+- Frontend: http://158.160.219.201:3000
+- Kafka broker (external): 158.160.219.201:29092
 
 ## HTTP API (short)
 Base path: `/api/v1`
