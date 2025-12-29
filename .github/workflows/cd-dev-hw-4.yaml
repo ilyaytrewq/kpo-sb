@@ -26,26 +26,27 @@ jobs:
         with:
           ref: ${{ inputs.checkout_ref }}
 
-      - name: Detect project base dir (root docker-compose)
+      - name: Detect project base dir
         id: detect
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import pathlib, os
-
+      
           root = pathlib.Path(".").resolve()
-
+      
           def ok(p: pathlib.Path) -> bool:
             if ".git" in p.parts:
               return False
             if p.name not in ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml"):
               return False
             base = p.parent
-            if (base / "api-files" / "openapi.yaml").exists():
+            # В твоём проекте OpenAPI лежит тут:
+            if (base / "api-files" / "openapi" / "api-gateway.yaml").exists():
               return True
             return False
-
+      
           base = None
           for name in ("docker-compose.yaml","docker-compose.yml","compose.yaml","compose.yml"):
             for p in root.rglob(name):
@@ -54,15 +55,16 @@ jobs:
                 break
             if base is not None:
               break
-
+      
           if base is None:
-            raise SystemExit("Cannot find root docker compose (docker-compose.yaml/yml or compose.yaml/yml) with api-files/openapi.yaml nearby")
-
+            raise SystemExit("Cannot find root compose with api-files/openapi/api-gateway.yaml nearby")
+      
           rel = str(base.relative_to(root))
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"base={rel}\n")
           print("Detected base:", rel)
           PY
+
 
       - name: Prepare SSH
         shell: bash
