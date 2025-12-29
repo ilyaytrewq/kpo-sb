@@ -69,7 +69,7 @@ jobs:
       - name: Prepare SSH
         shell: bash
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
+          HOST: ${{ secrets.DEPLOY_HOST_HW4 }}
           KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
@@ -81,7 +81,7 @@ jobs:
       - name: Rsync code to server
         shell: bash
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
+          HOST: ${{ secrets.DEPLOY_HOST_HW4 }}
           USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
@@ -108,7 +108,7 @@ jobs:
       - name: Deploy (validate root compose + docker compose up)
         shell: bash
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
+          HOST: ${{ secrets.DEPLOY_HOST_HW4 }}
           USER: ${{ secrets.DEPLOY_USER }}
           BASE: ${{ steps.detect.outputs.base }}
         run: |
