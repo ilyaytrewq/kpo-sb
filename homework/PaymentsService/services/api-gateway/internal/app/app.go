@@ -83,6 +83,14 @@ func Run(ctx context.Context, cfg config.Config) error {
 		})
 	})
 
+	healthHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+	router.Get("/health", healthHandler)
+	router.Get("/heath", healthHandler)
+
 	// Важно: preflight OPTIONS должен матчиться роутером, иначе будет 404 и "Failed to fetch"
 	router.Options("/*", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
