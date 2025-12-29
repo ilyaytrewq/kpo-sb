@@ -16,7 +16,7 @@ servers:
     description: Local/dev server
     variables:
       host:
-        default: localhost
+        default: 158.160.219.201
       port:
         default: "8080"
 

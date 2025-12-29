@@ -2,10 +2,10 @@
 Микросервисная система **Orders + Payments**: создание заказов и управление счетом пользователя.
 Оплата запускается **асинхронно через Kafka**, а консистентность обеспечивается через **Transactional Outbox/Inbox** и обязательный **Idempotency-Key** для безопасных повторов запросов.
 
-Базовый URL: `http://localhost:8080/api/v1`  \
-Swagger UI: `http://localhost:8088`  \
-Kafka UI: `http://localhost:8085`  \
-Frontend (демо): `http://localhost:3000`
+Базовый URL: `http://158.160.219.201:8080/api/v1`  \
+Swagger UI: `http://158.160.219.201:8088`  \
+Kafka UI: `http://158.160.219.201:8085`  \
+Frontend (демо): `http://158.160.219.201:3000`
 
 ---
 
@@ -56,10 +56,10 @@ bash scripts/create_topics.sh
 ```
 
 После запуска:
-- API Gateway: `http://localhost:8080/api/v1`
-- Swagger UI: `http://localhost:8088`
-- Kafka UI: `http://localhost:8085`
-- Frontend: `http://localhost:3000`
+- API Gateway: `http://158.160.219.201:8080/api/v1`
+- Swagger UI: `http://158.160.219.201:8088`
+- Kafka UI: `http://158.160.219.201:8085`
+- Frontend: `http://158.160.219.201:3000`
 
 ---
 
