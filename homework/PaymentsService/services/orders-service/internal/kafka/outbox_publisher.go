@@ -34,7 +34,7 @@ func (p *OutboxPublisher) Run(ctx context.Context) error {
 	defer func() {
 		logger.Info("outbox publisher stopped", "duration", time.Since(start))
 	}()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
