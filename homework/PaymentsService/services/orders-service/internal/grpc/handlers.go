@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -30,24 +31,45 @@ type Handlers struct {
 	cache *cache.OrderCache
 }
 
+var logger = slog.Default().With("service", "orders-service", "component", "grpc")
+
 func NewHandlers(repo *postgres.Repo, cache *cache.OrderCache) *Handlers {
+	logger.Info("handlers initialized")
 	return &Handlers{repo: repo, cache: cache}
 }
 
-func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderRequest) (*ordersv1.CreateOrderResponse, error) {
+func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderRequest) (resp *ordersv1.CreateOrderResponse, err error) {
+	start := time.Now()
+	logger.Info("create order start", "user_id", req.GetUserId(), "amount", req.GetAmount(), "has_idempotency_key", req.GetIdempotencyKey() != "")
+	defer func() {
+		if err != nil {
+			logger.Error("create order failed", "err", err, "duration", time.Since(start))
+			return
+		}
+		orderID := ""
+		if resp != nil && resp.Order != nil {
+			orderID = resp.Order.OrderId
+		}
+		logger.Info("create order completed", "order_id", orderID, "duration", time.Since(start))
+	}()
+
 	if req.GetUserId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		err = status.Error(codes.InvalidArgument, "user_id is required")
+		logger.Error("create order validation failed", "err", err)
+		return nil, err
 	}
 	if req.GetAmount() <= 0 {
-		return nil, status.Error(codes.InvalidArgument, "amount must be > 0")
+		err = status.Error(codes.InvalidArgument, "amount must be > 0")
+		logger.Error("create order validation failed", "err", err)
+		return nil, err
 	}
 	if req.GetDescription() == "" {
-		return nil, status.Error(codes.InvalidArgument, "description is required")
+		err = status.Error(codes.InvalidArgument, "description is required")
+		logger.Error("create order validation failed", "err", err)
+		return nil, err
 	}
 
-	var resp *ordersv1.CreateOrderResponse
-
-	err := h.repo.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
+	err = h.repo.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
 		idemKey := req.GetIdempotencyKey()
 		var (
 			orderID     string
@@ -65,6 +87,7 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 				Description: req.GetDescription(),
 			})
 			if err != nil {
+				logger.Error("failed to create order", "err", err)
 				return err
 			}
 			orderID = row.OrderID.String()
@@ -93,10 +116,13 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 						},
 					})
 					if err != nil {
+						logger.Error("failed to load order by idempotency key", "err", err)
 						return err
 					}
 					if existing.Amount != req.GetAmount() || existing.Description != req.GetDescription() {
-						return status.Error(codes.FailedPrecondition, "idempotency key reuse with different parameters")
+						err = status.Error(codes.FailedPrecondition, "idempotency key reuse with different parameters")
+						logger.Error("idempotency key reuse with different parameters", "err", err)
+						return err
 					}
 					resp = &ordersv1.CreateOrderResponse{
 						Order: &ordersv1.Order{
@@ -110,6 +136,7 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 					}
 					return nil
 				}
+				logger.Error("failed to create order with idempotency key", "err", err)
 				return err
 			}
 			orderID = row.OrderID.String()
@@ -130,7 +157,9 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 
 		payload, err := proto.Marshal(ev)
 		if err != nil {
-			return status.Error(codes.Internal, "failed to marshal event")
+			err = status.Error(codes.Internal, "failed to marshal event")
+			logger.Error("failed to marshal payment requested event", "err", err)
+			return err
 		}
 
 		_, err = q.InsertOutbox(ctx, db.InsertOutboxParams{
@@ -139,6 +168,7 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 			Payload:  payload,
 		})
 		if err != nil {
+			logger.Error("failed to insert outbox event", "err", err)
 			return err
 		}
 
@@ -157,16 +187,34 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 
 	if err != nil {
 		if st, ok := status.FromError(err); ok {
-			return nil, st.Err()
+			err = st.Err()
+			return nil, err
 		}
-		return nil, status.Error(codes.Internal, "failed to create order")
+		err = status.Error(codes.Internal, "failed to create order")
+		return nil, err
 	}
 	return resp, nil
 }
 
-func (h *Handlers) ListOrders(ctx context.Context, req *ordersv1.ListOrdersRequest) (*ordersv1.ListOrdersResponse, error) {
+func (h *Handlers) ListOrders(ctx context.Context, req *ordersv1.ListOrdersRequest) (resp *ordersv1.ListOrdersResponse, err error) {
+	start := time.Now()
+	logger.Info("list orders start", "user_id", req.GetUserId(), "limit", req.GetLimit(), "page_token", req.GetPageToken() != "")
+	defer func() {
+		if err != nil {
+			logger.Error("list orders failed", "err", err, "duration", time.Since(start))
+			return
+		}
+		count := 0
+		if resp != nil {
+			count = len(resp.Orders)
+		}
+		logger.Info("list orders completed", "orders_count", count, "duration", time.Since(start))
+	}()
+
 	if req.GetUserId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		err = status.Error(codes.InvalidArgument, "user_id is required")
+		logger.Error("list orders validation failed", "err", err)
+		return nil, err
 	}
 
 	limit := int32(50)
@@ -177,7 +225,9 @@ func (h *Handlers) ListOrders(ctx context.Context, req *ordersv1.ListOrdersReque
 	if req.GetPageToken() != "" {
 		n, err := decodeOffset(req.GetPageToken())
 		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid page_token")
+			err = status.Error(codes.InvalidArgument, "invalid page_token")
+			logger.Error("list orders invalid page token", "err", err)
+			return nil, err
 		}
 		offset = n
 	}
@@ -188,7 +238,9 @@ func (h *Handlers) ListOrders(ctx context.Context, req *ordersv1.ListOrdersReque
 		Offset: offset,
 	})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to list orders")
+		err = status.Error(codes.Internal, "failed to list orders")
+		logger.Error("list orders query failed", "err", err)
+		return nil, err
 	}
 
 	out := make([]*ordersv1.Order, 0, len(rows))
@@ -208,25 +260,41 @@ func (h *Handlers) ListOrders(ctx context.Context, req *ordersv1.ListOrdersReque
 		nextToken = encodeOffset(offset + limit)
 	}
 
-	return &ordersv1.ListOrdersResponse{
+	resp = &ordersv1.ListOrdersResponse{
 		Orders:        out,
 		NextPageToken: nextToken,
-	}, nil
+	}
+	return resp, nil
 }
 
-func (h *Handlers) GetOrder(ctx context.Context, req *ordersv1.GetOrderRequest) (*ordersv1.GetOrderResponse, error) {
+func (h *Handlers) GetOrder(ctx context.Context, req *ordersv1.GetOrderRequest) (resp *ordersv1.GetOrderResponse, err error) {
+	start := time.Now()
+	logger.Info("get order start", "user_id", req.GetUserId(), "order_id", req.GetOrderId())
+	defer func() {
+		if err != nil {
+			logger.Error("get order failed", "err", err, "duration", time.Since(start))
+			return
+		}
+		logger.Info("get order completed", "duration", time.Since(start))
+	}()
+
 	if req.GetUserId() == "" || req.GetOrderId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "user_id and order_id are required")
+		err = status.Error(codes.InvalidArgument, "user_id and order_id are required")
+		logger.Error("get order validation failed", "err", err)
+		return nil, err
 	}
 
 	oid, err := uuid.Parse(req.GetOrderId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid order_id")
+		err = status.Error(codes.InvalidArgument, "invalid order_id")
+		logger.Error("get order invalid order id", "err", err)
+		return nil, err
 	}
 
 	if cached, err := h.cache.Get(ctx, req.GetOrderId()); err == nil && cached != nil {
+		logger.Info("get order cache hit", "order_id", req.GetOrderId())
 		if cached.UserID == req.GetUserId() {
-			return &ordersv1.GetOrderResponse{
+			resp = &ordersv1.GetOrderResponse{
 				Order: &ordersv1.Order{
 					OrderId:     cached.OrderID,
 					UserId:      cached.UserID,
@@ -235,9 +303,11 @@ func (h *Handlers) GetOrder(ctx context.Context, req *ordersv1.GetOrderRequest) 
 					Status:      mapOrderStatus(cached.Status),
 					CreatedAt:   timestamppb.New(cached.CreatedAt),
 				},
-			}, nil
+			}
+			return resp, nil
 		}
 	}
+	logger.Info("get order cache miss", "order_id", req.GetOrderId())
 
 	r, err := h.repo.Q().GetOrder(ctx, db.GetOrderParams{
 		OrderID: pgtype.UUID{
@@ -247,21 +317,25 @@ func (h *Handlers) GetOrder(ctx context.Context, req *ordersv1.GetOrderRequest) 
 		UserID: req.GetUserId(),
 	})
 	if err != nil {
-		return nil, status.Error(codes.NotFound, "order not found")
+		err = status.Error(codes.NotFound, "order not found")
+		logger.Error("get order query failed", "err", err)
+		return nil, err
 	}
 
 	if h.cache != nil {
-		_ = h.cache.Set(ctx, cache.Order{
+		if err := h.cache.Set(ctx, cache.Order{
 			OrderID:     r.OrderID.String(),
 			UserID:      r.UserID,
 			Amount:      r.Amount,
 			Description: r.Description,
 			Status:      r.Status,
 			CreatedAt:   r.CreatedAt.Time,
-		})
+		}); err != nil {
+			logger.Error("failed to set order cache", "err", err, "order_id", r.OrderID.String())
+		}
 	}
 
-	return &ordersv1.GetOrderResponse{
+	resp = &ordersv1.GetOrderResponse{
 		Order: &ordersv1.Order{
 			OrderId:     r.OrderID.String(),
 			UserId:      r.UserID,
@@ -270,10 +344,12 @@ func (h *Handlers) GetOrder(ctx context.Context, req *ordersv1.GetOrderRequest) 
 			Status:      mapOrderStatus(r.Status),
 			CreatedAt:   timestamppb.New(r.CreatedAt.Time),
 		},
-	}, nil
+	}
+	return resp, nil
 }
 
 func mapOrderStatus(s string) ordersv1.OrderStatus {
+	logger.Info("map order status", "status", s)
 	switch s {
 	case "NEW":
 		return ordersv1.OrderStatus_ORDER_STATUS_NEW
@@ -287,17 +363,26 @@ func mapOrderStatus(s string) ordersv1.OrderStatus {
 }
 
 func encodeOffset(n int32) string {
-	return base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(int(n))))
+	start := time.Now()
+	logger.Info("encode offset start", "offset", n)
+	encoded := base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(int(n))))
+	logger.Info("encode offset completed", "duration", time.Since(start))
+	return encoded
 }
 
 func decodeOffset(s string) (int32, error) {
+	start := time.Now()
+	logger.Info("decode offset start", "has_value", s != "")
 	b, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
+		logger.Error("decode offset failed", "err", err, "duration", time.Since(start))
 		return 0, err
 	}
 	n, err := strconv.Atoi(string(b))
 	if err != nil {
+		logger.Error("decode offset failed", "err", err, "duration", time.Since(start))
 		return 0, err
 	}
+	logger.Info("decode offset completed", "offset", n, "duration", time.Since(start))
 	return int32(n), nil
 }

@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net"
 	"time"
 
@@ -24,8 +24,13 @@ import (
 )
 
 func Run(ctx context.Context, cfg config.Config) error {
+	start := time.Now()
+	logger := slog.Default().With("service", "payments-service", "component", "app")
+	logger.Info("payments service starting", "grpc_addr", cfg.GRPCAddr, "redis_addr", cfg.RedisAddr != "", "kafka_brokers", len(cfg.KafkaBrokers))
+
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
+		logger.Error("failed to create db pool", "err", err)
 		return err
 	}
 	defer pool.Close()
@@ -41,7 +46,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}
 	defer func() {
 		if err := writer.Close(); err != nil {
-			log.Printf("failed to close writer: %v", err)
+			logger.Error("failed to close kafka writer", "err", err)
 		}
 	}()
 
@@ -55,7 +60,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	})
 	defer func() {
 		if err := reader.Close(); err != nil {
-			log.Printf("failed to close reader: %v", err)
+			logger.Error("failed to close kafka reader", "err", err)
 		}
 	}()
 
@@ -67,7 +72,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 		cacheClient = redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 		defer func() {
 			if err := cacheClient.Close(); err != nil {
-				log.Printf("failed to close redis client: %v", err)
+				logger.Error("failed to close redis client", "err", err)
 			}
 		}()
 	}
@@ -79,25 +84,44 @@ func Run(ctx context.Context, cfg config.Config) error {
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)
 	if err != nil {
+		logger.Error("failed to listen on grpc address", "err", err, "grpc_addr", cfg.GRPCAddr)
 		return err
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		log.Println("grpc listening on", cfg.GRPCAddr)
+		logger.Info("grpc listening", "grpc_addr", cfg.GRPCAddr)
 		return grpcServer.Serve(lis)
 	})
 
 	g.Go(func() error {
 		<-ctx.Done()
-		log.Println("shutting down grpc...")
+		logger.Info("grpc shutting down")
 		grpcServer.GracefulStop()
 		return nil
 	})
 
-	g.Go(func() error { return outbox.Run(ctx) })
-	g.Go(func() error { return consumer.Run(ctx) })
+	g.Go(func() error {
+		err := outbox.Run(ctx)
+		if err != nil {
+			logger.Error("outbox publisher stopped with error", "err", err)
+		}
+		return err
+	})
+	g.Go(func() error {
+		err := consumer.Run(ctx)
+		if err != nil {
+			logger.Error("payment requested consumer stopped with error", "err", err)
+		}
+		return err
+	})
 
-	return g.Wait()
+	err = g.Wait()
+	if err != nil {
+		logger.Error("payments service stopped with error", "err", err, "duration", time.Since(start))
+	} else {
+		logger.Info("payments service stopped", "duration", time.Since(start))
+	}
+	return err
 }
