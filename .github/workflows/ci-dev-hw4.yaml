@@ -21,21 +21,25 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-import os, json
+          import os, json, sys
 
-# Run Go tests only for these 3 microservices.
-modules = [
-    "services/api-gateway",
-    "services/orders-service",
-    "services/payments-service",
-]
+          # Run Go tests only for these 3 microservices.
+          modules = [
+              "services/api-gateway",
+              "services/orders-service",
+              "services/payments-service",
+          ]
 
-py_dir = "tests" if os.path.isdir("tests") else ""
+          missing = [m for m in modules if not os.path.isfile(os.path.join(m, "go.mod"))]
+          if missing:
+              print("Expected go.mod not found in:", ", ".join(missing))
+              sys.exit(1)
 
-with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-    f.write(f"modules={json.dumps(modules)}\n")
-    f.write(f"py_dir={py_dir}\n")
+          py_dir = "tests" if os.path.isdir("tests") else ""
 
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"modules={json.dumps(modules)}\n")
+              f.write(f"py_dir={py_dir}\n")
           PY
 
   openapi-lint:
@@ -64,10 +68,15 @@ with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             fi
           }
 
-          lint_one ./api-files/openapi.yaml
-          lint_one ./api-files/file-storing.yaml
-          lint_one ./api-files/file-analisys.yaml
-          lint_one ./api-files/embedding-service.yaml
+          if [ -d ./api-files/openapi ]; then
+            shopt -s nullglob
+            for f in ./api-files/openapi/*.yaml ./api-files/openapi/*.yml; do
+              lint_one "$f"
+            done
+          else
+            lint_one ./api-files/openapi.yaml
+            lint_one ./api-files/openapi/api-gateway.yaml
+          fi
 
   go-unit:
     name: Go tests (${{ matrix.module }})
@@ -87,20 +96,8 @@ with open(os.environ["GITHUB_OUTPUT"], "a") as f:
           if [ ! -f "${{ matrix.module }}/go.sum" ]; then
             touch "${{ matrix.module }}/go.sum"
           fi
-      - name: Verify module path
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Matrix module: ${{ matrix.module }}"
-          echo "PWD: $(pwd)"
-          echo "List module dir:"
-          ls -la "${{ matrix.module }}" || true
-          echo "go.mod files found:"
-          find . -maxdepth 5 -name go.mod -print
-          test -f "${{ matrix.module }}/go.mod"
 
-
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: ${{ matrix.module }}/go.mod
           cache: true
@@ -154,3 +151,46 @@ with open(os.environ["GITHUB_OUTPUT"], "a") as f:
     with:
       checkout_ref: ${{ github.sha }}
       deploy_branch: ${{ github.ref_name }}
+
+  integration-tests:
+    name: Integration tests (after deploy)
+    runs-on: ubuntu-22.04
+    needs: [deploy, detect]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Wait for gateway /health
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          url="${API_GATEWAY_URL}/health"
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /tmp/health.json -w "%{http_code}" "$url" || true)"
+            if [ "$code" = "200" ]; then
+              cat /tmp/health.json || true
+              exit 0
+            fi
+            sleep 5
+          done
+          cat /tmp/health.json || true
+          exit 1
+
+      - name: Run integration E2E (full flow)
+        shell: bash
+        env:
+          API_GATEWAY_URL: http://${{ secrets.DEPLOY_HOST }}:8080
+        run: |
+          set -euo pipefail
+          if [ -z "${{ needs.detect.outputs.py_dir }}" ]; then
+            echo "No tests dir detected, skipping integration tests."
+            exit 0
+          fi
+          RUN_FULL_FLOW=1 API_GATEWAY_URL="${API_GATEWAY_URL}" \
+            python -m unittest discover -s "${{ needs.detect.outputs.py_dir }}" -p "test_*.py" -v
