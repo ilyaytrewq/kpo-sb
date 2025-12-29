@@ -14,12 +14,13 @@ type Inbox struct {
 }
 
 type Order struct {
-	OrderID     pgtype.UUID        `json:"order_id"`
-	UserID      string             `json:"user_id"`
-	Amount      int64              `json:"amount"`
-	Description string             `json:"description"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	OrderID        pgtype.UUID        `json:"order_id"`
+	UserID         string             `json:"user_id"`
+	Amount         int64              `json:"amount"`
+	Description    string             `json:"description"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type Outbox struct {

@@ -4,6 +4,12 @@ VALUES ($1, 0)
     ON CONFLICT (user_id) DO NOTHING
 RETURNING user_id, balance;
 
+-- name: CreateAccountIdempotent :one
+INSERT INTO accounts (user_id, balance)
+VALUES ($1, 0)
+    ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
+RETURNING user_id, balance;
+
 -- name: GetBalance :one
 SELECT balance FROM accounts WHERE user_id = $1;
 

@@ -3,6 +3,17 @@ INSERT INTO orders (user_id, amount, description, status)
 VALUES ($1, $2, $3, 'NEW')
     RETURNING order_id, user_id, amount, description, status, created_at;
 
+-- name: CreateOrderIdempotent :one
+INSERT INTO orders (user_id, amount, description, status, idempotency_key)
+VALUES ($1, $2, $3, 'NEW', $4)
+    ON CONFLICT (user_id, idempotency_key) DO NOTHING
+RETURNING order_id, user_id, amount, description, status, created_at, idempotency_key;
+
+-- name: GetOrderByIdempotency :one
+SELECT order_id, user_id, amount, description, status, created_at, idempotency_key
+FROM orders
+WHERE user_id = $1 AND idempotency_key = $2;
+
 -- name: GetOrder :one
 SELECT order_id, user_id, amount, description, status, created_at
 FROM orders

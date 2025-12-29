@@ -6,6 +6,15 @@ CREATE TABLE IF NOT EXISTS accounts (
     created_at timestamptz NOT NULL DEFAULT now()
     );
 
+CREATE TABLE IF NOT EXISTS topup_idempotency (
+                                                  user_id text NOT NULL,
+                                                  idempotency_key text NOT NULL,
+                                                  amount bigint NOT NULL CHECK (amount > 0),
+    balance_after bigint NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, idempotency_key)
+    );
+
 CREATE TABLE IF NOT EXISTS inbox (
                                      message_id uuid PRIMARY KEY,
                                      order_id uuid NOT NULL UNIQUE,

@@ -23,9 +23,18 @@ type CreateOrderParams struct {
 	Description string `json:"description"`
 }
 
-func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
+type CreateOrderRow struct {
+	OrderID     pgtype.UUID        `json:"order_id"`
+	UserID      string             `json:"user_id"`
+	Amount      int64              `json:"amount"`
+	Description string             `json:"description"`
+	Status      string             `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (CreateOrderRow, error) {
 	row := q.db.QueryRow(ctx, createOrder, arg.UserID, arg.Amount, arg.Description)
-	var i Order
+	var i CreateOrderRow
 	err := row.Scan(
 		&i.OrderID,
 		&i.UserID,
@@ -33,6 +42,50 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.Description,
 		&i.Status,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createOrderIdempotent = `-- name: CreateOrderIdempotent :one
+INSERT INTO orders (user_id, amount, description, status, idempotency_key)
+VALUES ($1, $2, $3, 'NEW', $4)
+    ON CONFLICT (user_id, idempotency_key) DO NOTHING
+RETURNING order_id, user_id, amount, description, status, created_at, idempotency_key
+`
+
+type CreateOrderIdempotentParams struct {
+	UserID         string      `json:"user_id"`
+	Amount         int64       `json:"amount"`
+	Description    string      `json:"description"`
+	IdempotencyKey pgtype.Text `json:"idempotency_key"`
+}
+
+type CreateOrderIdempotentRow struct {
+	OrderID        pgtype.UUID        `json:"order_id"`
+	UserID         string             `json:"user_id"`
+	Amount         int64              `json:"amount"`
+	Description    string             `json:"description"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+}
+
+func (q *Queries) CreateOrderIdempotent(ctx context.Context, arg CreateOrderIdempotentParams) (CreateOrderIdempotentRow, error) {
+	row := q.db.QueryRow(ctx, createOrderIdempotent,
+		arg.UserID,
+		arg.Amount,
+		arg.Description,
+		arg.IdempotencyKey,
+	)
+	var i CreateOrderIdempotentRow
+	err := row.Scan(
+		&i.OrderID,
+		&i.UserID,
+		&i.Amount,
+		&i.Description,
+		&i.Status,
+		&i.CreatedAt,
+		&i.IdempotencyKey,
 	)
 	return i, err
 }
@@ -48,9 +101,18 @@ type GetOrderParams struct {
 	UserID  string      `json:"user_id"`
 }
 
-func (q *Queries) GetOrder(ctx context.Context, arg GetOrderParams) (Order, error) {
+type GetOrderRow struct {
+	OrderID     pgtype.UUID        `json:"order_id"`
+	UserID      string             `json:"user_id"`
+	Amount      int64              `json:"amount"`
+	Description string             `json:"description"`
+	Status      string             `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetOrder(ctx context.Context, arg GetOrderParams) (GetOrderRow, error) {
 	row := q.db.QueryRow(ctx, getOrder, arg.OrderID, arg.UserID)
-	var i Order
+	var i GetOrderRow
 	err := row.Scan(
 		&i.OrderID,
 		&i.UserID,
@@ -58,6 +120,42 @@ func (q *Queries) GetOrder(ctx context.Context, arg GetOrderParams) (Order, erro
 		&i.Description,
 		&i.Status,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getOrderByIdempotency = `-- name: GetOrderByIdempotency :one
+SELECT order_id, user_id, amount, description, status, created_at, idempotency_key
+FROM orders
+WHERE user_id = $1 AND idempotency_key = $2
+`
+
+type GetOrderByIdempotencyParams struct {
+	UserID         string      `json:"user_id"`
+	IdempotencyKey pgtype.Text `json:"idempotency_key"`
+}
+
+type GetOrderByIdempotencyRow struct {
+	OrderID        pgtype.UUID        `json:"order_id"`
+	UserID         string             `json:"user_id"`
+	Amount         int64              `json:"amount"`
+	Description    string             `json:"description"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+}
+
+func (q *Queries) GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdempotencyParams) (GetOrderByIdempotencyRow, error) {
+	row := q.db.QueryRow(ctx, getOrderByIdempotency, arg.UserID, arg.IdempotencyKey)
+	var i GetOrderByIdempotencyRow
+	err := row.Scan(
+		&i.OrderID,
+		&i.UserID,
+		&i.Amount,
+		&i.Description,
+		&i.Status,
+		&i.CreatedAt,
+		&i.IdempotencyKey,
 	)
 	return i, err
 }
@@ -76,15 +174,24 @@ type ListOrdersParams struct {
 	Offset int32  `json:"offset"`
 }
 
-func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error) {
+type ListOrdersRow struct {
+	OrderID     pgtype.UUID        `json:"order_id"`
+	UserID      string             `json:"user_id"`
+	Amount      int64              `json:"amount"`
+	Description string             `json:"description"`
+	Status      string             `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListOrdersRow, error) {
 	rows, err := q.db.Query(ctx, listOrders, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Order
+	var items []ListOrdersRow
 	for rows.Next() {
-		var i Order
+		var i ListOrdersRow
 		if err := rows.Scan(
 			&i.OrderID,
 			&i.UserID,

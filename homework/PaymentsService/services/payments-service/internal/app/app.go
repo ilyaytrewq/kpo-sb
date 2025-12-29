@@ -73,7 +73,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}
 	balanceCache := cache.NewBalanceCache(cacheClient, cfg.CacheTTL)
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpcUnaryLogger()))
 	paymentsv1.RegisterPaymentsServiceServer(grpcServer, grpcsvc.NewHandlers(repo, balanceCache))
 	reflection.Register(grpcServer)
 

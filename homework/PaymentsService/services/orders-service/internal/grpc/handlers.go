@@ -3,7 +3,9 @@ package grpc
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ilyaytrewq/payments-service/order-service/internal/cache"
@@ -46,16 +48,77 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 	var resp *ordersv1.CreateOrderResponse
 
 	err := h.repo.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
-		row, err := q.CreateOrder(ctx, db.CreateOrderParams{
-			UserID:      req.GetUserId(),
-			Amount:      req.GetAmount(),
-			Description: req.GetDescription(),
-		})
-		if err != nil {
-			return err
-		}
+		idemKey := req.GetIdempotencyKey()
+		var (
+			orderID     string
+			userID      string
+			amount      int64
+			description string
+			statusText  string
+			createdAt   time.Time
+		)
 
-		orderID := row.OrderID.String()
+		if idemKey == "" {
+			row, err := q.CreateOrder(ctx, db.CreateOrderParams{
+				UserID:      req.GetUserId(),
+				Amount:      req.GetAmount(),
+				Description: req.GetDescription(),
+			})
+			if err != nil {
+				return err
+			}
+			orderID = row.OrderID.String()
+			userID = row.UserID
+			amount = row.Amount
+			description = row.Description
+			statusText = row.Status
+			createdAt = row.CreatedAt.Time
+		} else {
+			row, err := q.CreateOrderIdempotent(ctx, db.CreateOrderIdempotentParams{
+				UserID:      req.GetUserId(),
+				Amount:      req.GetAmount(),
+				Description: req.GetDescription(),
+				IdempotencyKey: pgtype.Text{
+					String: idemKey,
+					Valid:  true,
+				},
+			})
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					existing, err := q.GetOrderByIdempotency(ctx, db.GetOrderByIdempotencyParams{
+						UserID: req.GetUserId(),
+						IdempotencyKey: pgtype.Text{
+							String: idemKey,
+							Valid:  true,
+						},
+					})
+					if err != nil {
+						return err
+					}
+					if existing.Amount != req.GetAmount() || existing.Description != req.GetDescription() {
+						return status.Error(codes.FailedPrecondition, "idempotency key reuse with different parameters")
+					}
+					resp = &ordersv1.CreateOrderResponse{
+						Order: &ordersv1.Order{
+							OrderId:     existing.OrderID.String(),
+							UserId:      existing.UserID,
+							Amount:      existing.Amount,
+							Description: existing.Description,
+							Status:      mapOrderStatus(existing.Status),
+							CreatedAt:   timestamppb.New(existing.CreatedAt.Time),
+						},
+					}
+					return nil
+				}
+				return err
+			}
+			orderID = row.OrderID.String()
+			userID = row.UserID
+			amount = row.Amount
+			description = row.Description
+			statusText = row.Status
+			createdAt = row.CreatedAt.Time
+		}
 
 		ev := &eventsv1.PaymentRequested{
 			EventId:    uuid.NewString(),
@@ -82,17 +145,20 @@ func (h *Handlers) CreateOrder(ctx context.Context, req *ordersv1.CreateOrderReq
 		resp = &ordersv1.CreateOrderResponse{
 			Order: &ordersv1.Order{
 				OrderId:     orderID,
-				UserId:      row.UserID,
-				Amount:      row.Amount,
-				Description: row.Description,
-				Status:      ordersv1.OrderStatus_ORDER_STATUS_NEW,
-				CreatedAt:   timestamppb.New(row.CreatedAt.Time),
+				UserId:      userID,
+				Amount:      amount,
+				Description: description,
+				Status:      mapOrderStatus(statusText),
+				CreatedAt:   timestamppb.New(createdAt),
 			},
 		}
 		return nil
 	})
 
 	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			return nil, st.Err()
+		}
 		return nil, status.Error(codes.Internal, "failed to create order")
 	}
 	return resp, nil

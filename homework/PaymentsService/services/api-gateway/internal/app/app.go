@@ -40,6 +40,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	)
 
 	router := chi.NewRouter()
+	router.Use(requestLogger)
 
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{

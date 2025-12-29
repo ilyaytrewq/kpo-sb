@@ -39,6 +39,25 @@ func (q *Queries) CreateAccount(ctx context.Context, userID string) (CreateAccou
 	return i, err
 }
 
+const createAccountIdempotent = `-- name: CreateAccountIdempotent :one
+INSERT INTO accounts (user_id, balance)
+VALUES ($1, 0)
+    ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
+RETURNING user_id, balance
+`
+
+type CreateAccountIdempotentRow struct {
+	UserID  string `json:"user_id"`
+	Balance int64  `json:"balance"`
+}
+
+func (q *Queries) CreateAccountIdempotent(ctx context.Context, userID string) (CreateAccountIdempotentRow, error) {
+	row := q.db.QueryRow(ctx, createAccountIdempotent, userID)
+	var i CreateAccountIdempotentRow
+	err := row.Scan(&i.UserID, &i.Balance)
+	return i, err
+}
+
 const getBalance = `-- name: GetBalance :one
 SELECT balance FROM accounts WHERE user_id = $1
 `

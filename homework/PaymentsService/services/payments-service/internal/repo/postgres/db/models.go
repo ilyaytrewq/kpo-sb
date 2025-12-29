@@ -38,3 +38,11 @@ type Outbox struct {
 	SentAt    pgtype.Timestamptz `json:"sent_at"`
 	LastError pgtype.Text        `json:"last_error"`
 }
+
+type TopupIdempotency struct {
+	UserID         string             `json:"user_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	Amount         int64              `json:"amount"`
+	BalanceAfter   int64              `json:"balance_after"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}

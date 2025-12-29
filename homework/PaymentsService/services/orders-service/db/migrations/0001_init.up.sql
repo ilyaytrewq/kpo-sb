@@ -5,12 +5,16 @@ CREATE TABLE IF NOT EXISTS orders (
     user_id text NOT NULL,
     amount bigint NOT NULL CHECK (amount > 0),
     description text NOT NULL,
+    idempotency_key text NULL,
     status text NOT NULL CHECK (status IN ('NEW', 'FINISHED', 'CANCELLED')),
     created_at timestamptz NOT NULL DEFAULT now()
     );
 
 CREATE INDEX IF NOT EXISTS orders_user_created_idx
     ON orders (user_id, created_at DESC, order_id DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS orders_user_idem_idx
+    ON orders (user_id, idempotency_key);
 
 CREATE TABLE IF NOT EXISTS outbox (
                                       id bigserial PRIMARY KEY,

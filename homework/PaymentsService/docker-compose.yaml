@@ -98,7 +98,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - ./data/orders-postgres:/var/lib/postgresql/data
+      - orders_db_data:/var/lib/postgresql/data
     networks:
       - kafka-net
     healthcheck:
@@ -136,7 +136,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - ./data/payments-postgres:/var/lib/postgresql/data
+      - payments_db_data:/var/lib/postgresql/data
     networks:
       - kafka-net
     healthcheck:
@@ -237,6 +237,22 @@ services:
         condition: service_started
     networks:
       - kafka-net
+    
+
+  frontend:
+      build:
+        context: .
+        dockerfile: services/frontend/Dockerfile
+      container_name: frontend
+      ports:
+        - "3000:8080"
+      depends_on:
+        api-gateway:
+          condition: service_started
+      networks:
+        - kafka-net
+
+
 
   swagger-ui:
     image: swaggerapi/swagger-ui:latest
@@ -252,7 +268,10 @@ services:
     networks:
       - kafka-net
 
-
 networks:
   kafka-net:
     driver: bridge
+
+volumes:
+  orders_db_data:
+  payments_db_data:
