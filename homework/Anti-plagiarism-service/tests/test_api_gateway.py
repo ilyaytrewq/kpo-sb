@@ -6,7 +6,7 @@ import unittest
 import urllib.error
 import urllib.request
 
-
+#
 API_BASE_URL = os.getenv("API_GATEWAY_URL", "http://localhost:8080").rstrip("/")
 API_V1_URL = f"{API_BASE_URL}/api/v1"
 
