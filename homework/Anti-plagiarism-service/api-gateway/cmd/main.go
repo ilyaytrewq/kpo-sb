@@ -26,7 +26,7 @@ func main() {
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{
-			"http://158.160.186.61:8088",
+			"http://158.160.150.71:8088",
 			"http://localhost:8088",
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
