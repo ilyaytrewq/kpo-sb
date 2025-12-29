@@ -1,118 +1,180 @@
 # PaymentsService (HW-4)
+Микросервисная система **Orders + Payments**: создание заказов и управление счетом пользователя.
+Оплата запускается **асинхронно через Kafka**, а консистентность обеспечивается через **Transactional Outbox/Inbox** и обязательный **Idempotency-Key** для безопасных повторов запросов.
 
-## Overview
-Payments and Orders microservices with an API Gateway, Kafka-based async processing,
-and exactly-once guarantees via transactional outbox/inbox and idempotency keys.
+Базовый URL: `http://localhost:8080/api/v1`  \
+Swagger UI: `http://localhost:8088`  \
+Kafka UI: `http://localhost:8085`  \
+Frontend (демо): `http://localhost:3000`
 
-## Stack
-- Go (gRPC, chi)
-- PostgreSQL (orders/payments databases)
-- Apache Kafka
-- Redis (read cache)
-- OpenAPI/Swagger (API Gateway + Swagger UI)
-- Docker / Docker Compose
-- sqlc, oapi-codegen, Protobuf
-- React + Vite (frontend)
+---
 
-## Public endpoints (host 158.160.219.201)
-- API Gateway (HTTP): http://158.160.219.201:8080/api/v1
-- Swagger UI: http://158.160.219.201:8088
-- Kafka UI: http://158.160.219.201:8085
-- Frontend: http://158.160.219.201:3000
-- Kafka broker (external): 158.160.219.201:29092
+## Архитектура
 
-## HTTP API (short)
+### Компоненты
+
+**Бизнес-сервисы:**
+
+1. **api-gateway** (`:8080`) — публичный HTTP API (OpenAPI), проксирует запросы в **Orders** и **Payments** по gRPC.
+2. **orders-service** (`:9001`) — хранит заказы в Postgres, публикует событие `PaymentRequested` через outbox, читает `PaymentResult` и обновляет статус заказа.
+3. **payments-service** (`:9002`) — хранит счета в Postgres, читает `PaymentRequested`, выполняет списание атомарно и пишет `PaymentResult` через outbox.
+4. **frontend** (`:3000`) — небольшой UI для ручного прогона сценария.
+
+**Инфраструктура:** Kafka брокер + Kafka UI, Redis (read-cache), два Postgres (orders/payments), Swagger UI.
+
+### Пайплайн обработки заказа
+
+```
+Client
+  → API Gateway (HTTP)
+    → Orders Service (gRPC)
+      → Orders DB (Order=NEW + Outbox: PaymentRequested)
+        → Kafka topic: payments.payment_requested.v1
+          → Payments consumer
+            → Payments DB (Inbox + атомарное списание + Outbox: PaymentResult)
+              → Kafka topic: payments.payment_result.v1
+                → Orders consumer
+                  → Orders DB (Inbox + Order status: FINISHED/CANCELLED)
+```
+
+---
+
+## Запуск
+
+### 1) Поднять всё окружение
+
+```bash
+docker compose up --build -d
+```
+
+### 2) (Опционально) Создать Kafka-топики
+
+Если топики не создались автоматически, можно выполнить:
+
+```bash
+bash scripts/create_topics.sh
+```
+
+После запуска:
+- API Gateway: `http://localhost:8080/api/v1`
+- Swagger UI: `http://localhost:8088`
+- Kafka UI: `http://localhost:8085`
+- Frontend: `http://localhost:3000`
+
+---
+
+## ⚙️ Асинхронная обработка и consistency
+
+- `POST /orders` создаёт заказ со статусом **NEW** и **не ждёт** результата оплаты.
+- Итоговый статус заказа становится **FINISHED** или **CANCELLED** после обработки цепочки событий.
+
+### Kafka
+
+Топики:
+- `payments.payment_requested.v1` — запрос на оплату (key = `order_id`)
+- `payments.payment_result.v1` — результат оплаты (key = `order_id`)
+
+Группы потребителей:
+- `payments-service` читает `payments.payment_requested.v1`
+- `orders-service` читает `payments.payment_result.v1`
+
+Offsets коммитятся **только после** успешного завершения DB-транзакции (ручной commit).
+
+---
+
+## ✅ Idempotency и “effectively exactly-once”
+
+### HTTP (внешний уровень)
+- **`Idempotency-Key` обязателен для всех `POST`**.
+- `X-User-Id` чаще всего **опциональный**: если не передан, gateway генерирует новый `user_id` и возвращает его в ответе.
+- Для `GET /payments/account/balance` заголовок `X-User-Id` **обязателен**.
+
+### Kafka + DB (межсервисный уровень)
+- **Transactional Outbox**: событие пишется в таблицу outbox в той же транзакции, что и бизнес-изменение.
+- **Inbox**: потребитель сначала фиксирует факт обработки сообщения в inbox (дедупликация), и только потом выполняет бизнес-логику.
+- В **payments-service** двойное списание предотвращается комбинацией:
+  - inbox (дубликаты сообщений)
+  - `account_ops` (1 операция списания на `order_id`)
+  - атомарный SQL-update баланса с проверками.
+
+---
+
+## 🛠 Tech Stack
+
+- **Go 1.25+** — backend
+- **gRPC** — синхронные вызовы между gateway ↔ services
+- **Chi + OpenAPI 3.0** — HTTP слой API Gateway
+- **PostgreSQL** — две БД (orders/payments)
+- **Apache Kafka** — асинхронные события
+- **Redis** — read-cache (баланс/заказы)
+- **sqlc** — типобезопасный слой запросов к БД
+- **buf + Protobuf** — контракты gRPC / события
+- **oapi-codegen** — генерация сервера/типов для API Gateway
+- **Docker / Docker Compose** — запуск окружения
+- **React + Vite** — frontend
+
+---
+
+## 🔌 API Endpoints
+
 Base path: `/api/v1`
 
-- `POST /payments/account` - create account (idempotent)
-- `POST /payments/account/topup` - top up account (idempotent)
-- `GET /payments/account/balance` - get balance (requires `X-User-Id`)
-- `POST /orders` - create order (starts async payment)
-- `GET /orders` - list orders
-- `GET /orders/{orderId}` - get order details
+### Payments
+- `POST /payments/account` — создать счёт (макс. 1 на пользователя)
+- `POST /payments/account/topup` — пополнить счёт
+- `GET /payments/account/balance` — получить баланс (**требует `X-User-Id`**)
 
-Headers:
-- `Idempotency-Key` is required for all POST requests.
-- `X-User-Id` is optional for most endpoints (gateway generates it if missing).
+### Orders
+- `POST /orders` — создать заказ (оплата стартует асинхронно)
+- `GET /orders` — список заказов пользователя
+- `GET /orders/{orderId}` — детали / статус заказа
 
-## Kafka
-Topics:
-- `payments.payment_requested.v1` (key = `order_id`)
-- `payments.payment_result.v1` (key = `order_id`)
+### Важные заголовки
+- `Idempotency-Key: <string>` — **обязателен для всех POST**
+- `X-User-Id: <string>` — опционален (gateway может сгенерировать), **обязателен** для `GET /payments/account/balance`
 
-Consumer groups:
-- `payments-service` reads `payments.payment_requested.v1`
-- `orders-service` reads `payments.payment_result.v1`
+---
 
-Offsets are committed only after DB transaction commit (`FetchMessage` + `CommitMessages`).
+## 📁 Project Structure
 
-## Exactly-once and consistency
-- Transactional outbox/inbox in Orders and Payments.
-- Atomic balance update + `account_ops` prevents double charge per order.
-- Idempotency keys on HTTP POST and top-up operations.
-
-## Flow diagram
 ```
-CreateOrder (API Gateway)
-  -> Orders gRPC
-    -> Orders outbox (PaymentRequested)
-      -> Kafka (payment_requested)
-        -> Payments consumer
-          -> Payments tx (inbox + account_ops + outbox PaymentResult)
-            -> Kafka (payment_result)
-              -> Orders consumer
-                -> Orders tx (inbox + status update)
+.
+├── api-files/
+│   └── openapi/
+│       └── api-gateway.yaml          # OpenAPI спецификация HTTP API
+├── proto/                            # Protobuf контракты (gRPC + events)
+├── gen/                              # Сгенерированный код (buf + oapi-codegen)
+├── services/
+│   ├── api-gateway/                  # HTTP API + gRPC clients
+│   ├── orders-service/               # Orders (Postgres + Kafka outbox/inbox)
+│   ├── payments-service/             # Payments (Postgres + Kafka outbox/inbox)
+│   └── frontend/                     # React/Vite UI
+├── scripts/                          # generate_code.sh, generate_sql.sh, create_topics.sh, lint
+└── docker-compose.yaml
 ```
 
-## Local development
+---
 
-### Prerequisites
+## Кодогенерация кода
+
+### Protobuf + OpenAPI
+
 ```bash
-go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-npm install -g @redocly/cli
-export PATH="$(go env GOPATH)/bin:$PATH"
+bash scripts/generate_code.sh
 ```
 
-### Code generation & lint
-```bash
-chmod +x scripts/check_api-files.sh
-chmod +x scripts/generate_code.sh
-chmod +x scripts/generate_sql.sh
+Внутри скрипта:
+- `buf generate` (protobuf)
+- `oapi-codegen ... api-files/openapi/api-gateway.yaml` (HTTP API Gateway)
 
-./scripts/check_api-files.sh
-./scripts/generate_code.sh
-./scripts/generate_sql.sh
+### sqlc (Postgres queries)
+
+```bash
+bash scripts/generate_sql.sh
 ```
 
-### Local infrastructure (Kafka + Postgres + Redis)
-```bash
-export HOST=localhost
-docker compose up -d broker kafka-init kafka-ui orders-postgres payments-postgres redis
-```
+### Линт спецификаций
 
-### Migrations
 ```bash
-chmod +x scripts/migrate_orders.sh
-chmod +x scripts/migrate_payments.sh
-
-./scripts/migrate_orders.sh
-./scripts/migrate_payments.sh
-```
-
-### Run services
-```bash
-docker compose up -d api-gateway orders-service payments-service swagger-ui frontend
-```
-
-### Quick start cheat-sheet
-```bash
-./scripts/generate_code.sh
-./scripts/generate_sql.sh
-export HOST=localhost && docker compose up -d broker kafka-init kafka-ui orders-postgres payments-postgres redis
-./scripts/migrate_orders.sh
-./scripts/migrate_payments.sh
-docker compose up -d api-gateway orders-service payments-service swagger-ui frontend
+bash scripts/check_api-files.sh
 ```
