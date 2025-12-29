@@ -2,7 +2,7 @@ package kafka
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -21,32 +21,43 @@ type OutboxPublisher struct {
 }
 
 func NewOutboxPublisher(repo *postgres.Repo, w *kafka.Writer, interval time.Duration, batch int) *OutboxPublisher {
+	slog.Default().With("service", "payments-service", "component", "kafka").Info("outbox publisher initialized", "interval", interval.String(), "batch", batch)
 	return &OutboxPublisher{repo: repo, w: w, interval: interval, batch: batch}
 }
 
 func (p *OutboxPublisher) Run(ctx context.Context) error {
+	start := time.Now()
+	logger := slog.Default().With("service", "payments-service", "component", "kafka")
+	logger.Info("outbox publisher run start", "interval", p.interval.String(), "batch", p.batch)
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
+	defer logger.Info("outbox publisher stopped", "duration", time.Since(start))
 
 	for {
 		select {
 		case <-ctx.Done():
+			logger.Info("outbox publisher context done")
 			return nil
 		case <-ticker.C:
 			if err := p.publishOnce(ctx); err != nil {
-				log.Println("payments outbox publish error:", err)
+				logger.Error("outbox publish error", "err", err)
 			}
 		}
 	}
 }
 
 func (p *OutboxPublisher) publishOnce(ctx context.Context) error {
+	start := time.Now()
+	logger := slog.Default().With("service", "payments-service", "component", "kafka")
+	logger.Info("outbox publish cycle start")
 	return p.repo.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
 		rows, err := q.LockUnsentOutbox(ctx, int32(p.batch))
 		if err != nil {
+			logger.Error("failed to lock unsent outbox rows", "err", err)
 			return err
 		}
 		if len(rows) == 0 {
+			logger.Info("outbox publish cycle empty", "duration", time.Since(start))
 			return nil
 		}
 
@@ -64,14 +75,18 @@ func (p *OutboxPublisher) publishOnce(ctx context.Context) error {
 						Valid:  true,
 					},
 				})
+				logger.Error("failed to publish outbox message", "err", err, "outbox_id", r.ID, "kafka_key", r.KafkaKey)
 				continue
 			}
 
 			if err := q.MarkOutboxSent(ctx, r.ID); err != nil {
+				logger.Error("failed to mark outbox as sent", "err", err, "outbox_id", r.ID)
 				return err
 			}
+			logger.Info("outbox message published", "outbox_id", r.ID, "kafka_key", r.KafkaKey)
 		}
 
+		logger.Info("outbox publish cycle completed", "count", len(rows), "duration", time.Since(start))
 		return nil
 	})
 }

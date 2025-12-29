@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -22,14 +22,19 @@ import (
 )
 
 func Run(ctx context.Context, cfg config.Config) error {
+	start := time.Now()
+	logger := slog.Default().With("service", "api-gateway", "component", "app")
+	logger.Info("api gateway starting", "http_addr", cfg.HTTPAddr, "base_path", cfg.BasePath)
 	ordersConn, err := grpc.DialContext(ctx, cfg.OrdersGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
+		logger.Error("failed to dial orders grpc", "err", err, "addr", cfg.OrdersGRPCAddr)
 		return err
 	}
 	defer ordersConn.Close()
 
 	paymentsConn, err := grpc.DialContext(ctx, cfg.PaymentsGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
+		logger.Error("failed to dial payments grpc", "err", err, "addr", cfg.PaymentsGRPCAddr)
 		return err
 	}
 	defer paymentsConn.Close()
@@ -68,6 +73,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, cfg.BasePath) {
 				if strings.TrimSpace(r.Header.Get("Idempotency-Key")) == "" {
 					userID := r.Header.Get("X-User-Id")
+					logger.Error("missing idempotency key", "path", r.URL.Path, "user_id", userID)
 					handler.WriteBadRequest(w, userID, errors.New("idempotency key is required"))
 					return
 				}
@@ -86,6 +92,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 		BaseRouter: router,
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			userID := r.Header.Get("X-User-Id")
+			logger.Error("gateway handler error", "err", err, "path", r.URL.Path, "user_id", userID)
 			handler.WriteBadRequest(w, userID, err)
 		},
 	})
@@ -98,7 +105,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("gateway listening on %s", cfg.HTTPAddr)
+		logger.Info("gateway listening", "http_addr", cfg.HTTPAddr)
 		errCh <- server.ListenAndServe()
 	}()
 
@@ -106,8 +113,19 @@ func Run(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		return server.Shutdown(shutdownCtx)
+		err := server.Shutdown(shutdownCtx)
+		if err != nil {
+			logger.Error("gateway shutdown failed", "err", err, "duration", time.Since(start))
+			return err
+		}
+		logger.Info("gateway shutdown completed", "duration", time.Since(start))
+		return nil
 	case err := <-errCh:
+		if err != nil {
+			logger.Error("gateway stopped with error", "err", err, "duration", time.Since(start))
+		} else {
+			logger.Info("gateway stopped", "duration", time.Since(start))
+		}
 		return err
 	}
 }

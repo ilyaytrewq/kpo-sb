@@ -1,7 +1,7 @@
 package app
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -31,6 +31,7 @@ func requestLogger(next http.Handler) http.Handler {
 		start := time.Now()
 		lw := &loggingResponseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(lw, r)
-		log.Printf("http %s %s %d %dB %s", r.Method, r.URL.Path, lw.status, lw.bytes, time.Since(start))
+		logger := slog.Default().With("service", "api-gateway", "component", "http")
+		logger.Info("http request completed", "method", r.Method, "path", r.URL.Path, "status", lw.status, "bytes", lw.bytes, "duration", time.Since(start))
 	})
 }

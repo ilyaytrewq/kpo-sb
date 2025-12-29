@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,13 +12,17 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})).
+		With("service", "orders-service")
+	slog.SetDefault(logger)
+
 	cfg := config.MustLoad()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	if err := app.Run(ctx, cfg); err != nil {
-		log.Println("orders service stopped with error:", err)
+		slog.Error("orders service stopped with error", "err", err)
 		os.Exit(1)
 	}
 }

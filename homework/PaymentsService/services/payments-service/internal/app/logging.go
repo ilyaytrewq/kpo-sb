@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"google.golang.org/grpc"
@@ -14,7 +14,12 @@ func grpcUnaryLogger() grpc.UnaryServerInterceptor {
 		start := time.Now()
 		resp, err := handler(ctx, req)
 		code := status.Code(err)
-		log.Printf("grpc %s %s %s", info.FullMethod, code.String(), time.Since(start))
+		logger := slog.Default().With("service", "payments-service", "component", "grpc")
+		if err != nil {
+			logger.Error("grpc request failed", "method", info.FullMethod, "code", code.String(), "duration", time.Since(start), "err", err)
+		} else {
+			logger.Info("grpc request completed", "method", info.FullMethod, "code", code.String(), "duration", time.Since(start))
+		}
 		return resp, err
 	}
 }
