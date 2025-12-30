@@ -107,24 +107,24 @@ services:
       timeout: 5s
       retries: 10
 
-  orders-migrate:
-    image: postgres:16
-    container_name: orders-migrate
-    depends_on:
-      orders-postgres:
-        condition: service_healthy
-    networks:
-      - kafka-net
-    volumes:
-      - ./services/orders-service/db/migrations:/migrations:ro
-    restart: "no"
-    entrypoint:
-      - /bin/bash
-      - -lc
-      - |
-          set -euo pipefail
-          psql "postgres://postgres:postgres@orders-postgres:5432/orders?sslmode=disable" \
-            -f /migrations/0001_init.up.sql
+  # orders-migrate:
+  #   image: postgres:16
+  #   container_name: orders-migrate
+  #   depends_on:
+  #     orders-postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - kafka-net
+  #   volumes:
+  #     - ./services/orders-service/db/migrations:/migrations:ro
+  #   restart: "no"
+  #   entrypoint:
+  #     - /bin/bash
+  #     - -lc
+  #     - |
+  #         set -euo pipefail
+  #         psql "postgres://postgres:postgres@orders-postgres:5432/orders?sslmode=disable" \
+  #           -f /migrations/0001_init.up.sql
 
   payments-postgres:
     image: postgres:16
@@ -145,24 +145,24 @@ services:
       timeout: 5s
       retries: 10
 
-  payments-migrate:
-    image: postgres:16
-    container_name: payments-migrate
-    depends_on:
-      payments-postgres:
-        condition: service_healthy
-    networks:
-      - kafka-net
-    volumes:
-      - ./services/payments-service/db/migrations:/migrations:ro
-    restart: "no"
-    entrypoint:
-      - /bin/bash
-      - -lc
-      - |
-          set -euo pipefail
-          psql "postgres://postgres:postgres@payments-postgres:5432/payments?sslmode=disable" \
-            -f /migrations/0001_init.up.sql
+  # payments-migrate:
+  #   image: postgres:16
+  #   container_name: payments-migrate
+  #   depends_on:
+  #     payments-postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - kafka-net
+  #   volumes:
+  #     - ./services/payments-service/db/migrations:/migrations:ro
+  #   restart: "no"
+  #   entrypoint:
+  #     - /bin/bash
+  #     - -lc
+  #     - |
+  #         set -euo pipefail
+  #         psql "postgres://postgres:postgres@payments-postgres:5432/payments?sslmode=disable" \
+  #           -f /migrations/0001_init.up.sql
 
   orders-service:
     build:
@@ -182,8 +182,8 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      orders-migrate:
-        condition: service_completed_successfully
+      # orders-migrate:
+      #   condition: service_completed_successfully
       orders-postgres:
         condition: service_healthy
       redis:
@@ -209,8 +209,8 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      payments-migrate:
-        condition: service_completed_successfully
+      # payments-migrate:
+      #   condition: service_completed_successfully
       payments-postgres:
         condition: service_healthy
       redis:
