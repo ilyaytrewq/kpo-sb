@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/homework/zoo" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/notifications" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/notifications" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-1" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-1" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-10" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-10" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-11" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-11" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-12" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-12" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-2" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-2" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-3" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-3" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-4" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-4" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-5" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-5" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-6" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-6" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-7" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-7" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-8" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-8" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/practise-9" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/practise-9" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/practices/training-center" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/practices/training-center" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/project" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/project" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>

@@ -1,0 +1,86 @@
+# ===== Go build artifacts =====
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Binaries / build dirs k
+bin/
+dist/
+build/
+out/
+*.prof
+*.pprof
+coverage.out
+*.coverprofile
+
+# ===== Go workspace / modules =====
+# (обычно go.sum и go.mod коммитим)
+# vendor/ коммить только если вы осознанно его используете
+/vendor/
+
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+*.log
+logs/
+log/
+
+# ===== IDE / editors =====
+.vscode/
+.idea/
+*.iml
+
+# ===== JetBrains Go plugin =====
+/**/.run/
+
+# ===== GoLand / IntelliJ build caches =====
+/**/cmake-build-*/
+/**/.fleet/
+/**/.gradle/
+TODO.md
+
+# ===== Vim / swap =====
+*.swp
+*.swo
+*~
+
+# ===== Env / secrets =====
+*.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+data/
+.git/
+**/*.log
+**/.DS_Store
+**/bin/
+**/dist/
+**/tmp/
+**/.idea/
+**/.vscode/
+
+
+# ===== Docker / compose local overrides =====
+docker-compose.override.yml
+
+# ===== Generated code (если используешь codegen) =====
+# Раскомментируй, если реально генеришь и не хочешь коммитить:
+# **/*_gen.go
+# **/*.pb.go
+# **/*.grpc.pb.go
+# **/*.gw.go
+
+# ===== Temporary =====
+tmp/
+temp/
+data/
+.gocache/

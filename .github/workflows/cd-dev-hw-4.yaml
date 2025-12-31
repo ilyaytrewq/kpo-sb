@@ -1,0 +1,153 @@
+name: CD (Deploy to Yandex VPS)
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        required: true
+        type: string
+      deploy_branch:
+        required: true
+        type: string
+    secrets:
+      DEPLOY_HOST:
+        required: true
+      DEPLOY_USER:
+        required: true
+      DEPLOY_SSH_KEY:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Detect project base dir
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, os
+      
+          root = pathlib.Path(".").resolve()
+      
+          def ok(p: pathlib.Path) -> bool:
+            if ".git" in p.parts:
+              return False
+            if p.name not in ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml"):
+              return False
+            base = p.parent
+            # В твоём проекте OpenAPI лежит тут:
+            if (base / "api-files" / "openapi" / "api-gateway.yaml").exists():
+              return True
+            return False
+      
+          base = None
+          for name in ("docker-compose.yaml","docker-compose.yml","compose.yaml","compose.yml"):
+            for p in root.rglob(name):
+              if ok(p):
+                base = p.parent
+                break
+            if base is not None:
+              break
+      
+          if base is None:
+            raise SystemExit("Cannot find root compose with api-files/openapi/api-gateway.yaml nearby")
+      
+          rel = str(base.relative_to(root))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"base={rel}\n")
+          print("Detected base:", rel)
+          PY
+
+
+      - name: Prepare SSH
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST_HW4 }}
+          KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf "%s" "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Rsync code to server
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST_HW4 }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+          if [ "${{ inputs.deploy_branch }}" = "main" ]; then
+            REMOTE_DIR="/opt/anti-plagiarism/prod"
+          else
+            REMOTE_DIR="/opt/anti-plagiarism/dev"
+          fi
+          echo "REMOTE_DIR=$REMOTE_DIR" >> "$GITHUB_ENV"
+
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+            "${USER}@${HOST}" "sudo mkdir -p '${REMOTE_DIR}/repo' && sudo chown -R '${USER}:${USER}' '/opt/anti-plagiarism'"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
+            --exclude ".git" \
+            --exclude ".DS_Store" \
+            --exclude "__MACOSX" \
+            "./" "${USER}@${HOST}:${REMOTE_DIR}/repo"
+
+      - name: Deploy (validate root compose + docker compose up)
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST_HW4 }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          BASE: ${{ steps.detect.outputs.base }}
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+            "${USER}@${HOST}" "REMOTE_DIR='${REMOTE_DIR}' BASE='${BASE}' bash -s" <<'SCRIPT'
+          set -euo pipefail
+
+          cd "$REMOTE_DIR/repo/$BASE"
+
+          sudo -n docker version >/dev/null
+          sudo -n docker compose version >/dev/null
+
+          other="$(find . -type f \( -name 'docker-compose.yml' -o -name 'docker-compose.yaml' -o -name 'compose.yml' -o -name 'compose.yaml' \) \
+                    ! -path './docker-compose.yml' ! -path './docker-compose.yaml' ! -path './compose.yml' ! -path './compose.yaml' | sed 's|^\./||' || true)"
+          if [ -n "$other" ]; then
+            echo "ERROR: Found extra compose files inside subfolders (please delete them from repo):"
+            echo "$other"
+            exit 1
+          fi
+
+          if [ -f docker-compose.yaml ]; then
+            sudo docker compose down
+            sudo -n docker compose -f docker-compose.yaml config >/dev/null
+            sudo -n docker compose -f docker-compose.yaml up -d --build
+          elif [ -f docker-compose.yml ]; then
+            sudo -n docker compose -f docker-compose.yml config >/dev/null
+            sudo -n docker compose -f docker-compose.yml up -d --build
+          elif [ -f compose.yaml ]; then
+            sudo -n docker compose -f compose.yaml config >/dev/null
+            sudo -n docker compose -f compose.yaml up -d --build
+          elif [ -f compose.yml ]; then
+            sudo -n docker compose -f compose.yml config >/dev/null
+            sudo -n docker compose -f compose.yml up -d --build
+          else
+            echo "ERROR: No root compose file found in $PWD"
+            exit 1
+          fi
+
+          sudo -n docker image prune -f >/dev/null 2>&1 || true
+          SCRIPT
