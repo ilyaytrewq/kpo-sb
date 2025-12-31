@@ -1,0 +1,412 @@
+openapi: 3.0.3
+info:
+  title: File Analysis Service API
+  version: 1.0.0
+  description: "Service that orchestrates plagiarism checks on submitted documents.\n\nReceives fileId from API Gateway, downloads file from file-storing,\nchunks it, gets embeddings, compares with stored embeddings, and saves results.\n"
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit/
+servers:
+  - url: http://file-analisys:8081/api/v1
+    description: Internal file analysis service
+tags:
+  - name: Analysis
+    description: Plagiarism analysis operations
+  - name: Reports
+    description: Report retrieval operations
+
+paths:
+  /analyze:
+    post:
+      tags: [Analysis]
+      summary: Start plagiarism analysis for a file
+      operationId: analyzeFile
+      description: |
+        Accepts fileId and workId to start plagiarism analysis.
+        Pipeline:
+        1. Downloads file from file-storing using fileId
+        2. Splits document into chunks
+        3. Sends chunks to embedding-service for vectorization
+        4. Stores embeddings in file-storing (per workId table/collection)
+        5. Compares with existing embeddings for the same workId
+        6. Calculates similarity scores
+        7. Saves results to database
+        Returns immediately with QUEUED status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+            examples:
+              homework:
+                summary: Homework submission
+                value:
+                  fileId: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                  workId: hw-kpo-3
+                  submissionId: sub-001
+              lab:
+                summary: Lab work submission
+                value:
+                  fileId: 550e8400-e29b-41d4-a716-446655440000
+                  workId: lab-ml-1
+                  submissionId: sub-042
+      responses:
+        '202':
+          description: Analysis request accepted and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeResponse'
+              examples:
+                accepted:
+                  summary: Analysis queued
+                  value:
+                    submissionId: sub-001
+                    workId: hw-kpo-3
+                    status: QUEUED
+                    message: Analysis queued. Use GET /reports/{submissionId} to check status.
+                    queuedAt: '2025-12-11T12:30:00Z'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_fileId:
+                  value:
+                    code: VALIDATION_ERROR
+                    message: fileId is required
+                missing_workId:
+                  value:
+                    code: VALIDATION_ERROR
+                    message: workId is required
+        '404':
+          description: File not found in file-storing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: FILE_NOT_FOUND
+                message: File with id 'f47ac10b-58cc-4372-a567-0e02b2c3d479' not found in storage
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: INTERNAL_ERROR
+                message: Failed to queue analysis
+
+  /reports/{submissionId}:
+    get:
+      tags: [Reports]
+      summary: Get plagiarism report
+      operationId: getReport
+      description: |
+        Retrieves plagiarism analysis results for a specific submission.
+        Status can be: QUEUED, PROCESSING, DONE, ERROR.
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: sub-001
+          description: Submission identifier
+      responses:
+        '200':
+          description: Report retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+              examples:
+                completed_high_plagiarism:
+                  summary: High plagiarism detected
+                  value:
+                    submissionId: sub-001
+                    workId: hw-kpo-3
+                    status: DONE
+                    plagiarismDetected: true
+                    similarityPercent: 78.5
+                    createdAt: '2025-12-11T12:30:00Z'
+                    completedAt: '2025-12-11T12:35:00Z'
+                    matchedSubmissions:
+                      - submissionId: sub-042
+                        similarityPercent: 78.5
+                        matchedChunks: 15
+                      - submissionId: sub-089
+                        similarityPercent: 45.2
+                        matchedChunks: 8
+                completed_low_similarity:
+                  summary: No plagiarism detected
+                  value:
+                    submissionId: sub-002
+                    workId: hw-kpo-3
+                    status: DONE
+                    plagiarismDetected: false
+                    similarityPercent: 12.3
+                    createdAt: '2025-12-11T13:00:00Z'
+                    completedAt: '2025-12-11T13:03:00Z'
+                    matchedSubmissions: []
+                processing:
+                  summary: Analysis in progress
+                  value:
+                    submissionId: sub-003
+                    workId: hw-kpo-3
+                    status: PROCESSING
+                    plagiarismDetected: false
+                    similarityPercent: 0
+                    createdAt: '2025-12-11T14:00:00Z'
+                    matchedSubmissions: []
+                error:
+                  summary: Analysis failed
+                  value:
+                    submissionId: sub-004
+                    workId: hw-kpo-3
+                    status: ERROR
+                    plagiarismDetected: false
+                    similarityPercent: 0
+                    createdAt: '2025-12-11T15:00:00Z'
+                    errorMessage: Failed to extract text from document
+                    matchedSubmissions: []
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: REPORT_NOT_FOUND
+                message: Report not found for submissionId='sub-999'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /works/{workId}/reports:
+    get:
+      tags: [Reports]
+      summary: Get all reports for a work
+      operationId: getWorkReports
+      description: Returns all plagiarism reports for submissions in a specific work
+      parameters:
+        - name: workId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: hw-kpo-3
+          description: Work identifier
+      responses:
+        '200':
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkReportsResponse'
+              example:
+                - submissionId: sub-001
+                  status: DONE
+                  plagiarismDetected: true
+                  similarityPercent: 78.5
+                  createdAt: '2025-12-11T12:30:00Z'
+                  completedAt: '2025-12-11T12:35:00Z'
+                - submissionId: sub-002
+                  status: DONE
+                  plagiarismDetected: false
+                  similarityPercent: 12.3
+                  createdAt: '2025-12-11T13:00:00Z'
+                  completedAt: '2025-12-11T13:03:00Z'
+        '404':
+          description: Work not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    AnalyzeRequest:
+      type: object
+      required: [fileId, workId, submissionId]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+          description: File ID from file-storing service
+          example: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        workId:
+          type: string
+          description: Work identifier (embeddings are grouped by workId)
+          minLength: 1
+          maxLength: 100
+          example: hw-kpo-3
+        submissionId:
+          type: string
+          description: Unique submission identifier
+          minLength: 1
+          maxLength: 100
+          example: sub-001
+
+    AnalyzeResponse:
+      type: object
+      required: [submissionId, workId, status, queuedAt]
+      properties:
+        submissionId:
+          type: string
+          description: Submission identifier
+          example: sub-001
+        workId:
+          type: string
+          description: Work identifier
+          example: hw-kpo-3
+        status:
+          type: string
+          enum: [QUEUED]
+          description: Initial status
+          example: QUEUED
+        message:
+          type: string
+          description: Human-readable message
+          example: Analysis queued. Use GET /reports/{submissionId} to check status.
+        queuedAt:
+          type: string
+          format: date-time
+          description: Timestamp when queued
+          example: '2025-12-11T12:30:00Z'
+
+    ReportResponse:
+      type: object
+      required: [submissionId, workId, status, plagiarismDetected, similarityPercent, createdAt]
+      properties:
+        submissionId:
+          type: string
+          description: Submission identifier
+          example: sub-001
+        workId:
+          type: string
+          description: Work identifier
+          example: hw-kpo-3
+        status:
+          type: string
+          enum: [QUEUED, PROCESSING, DONE, ERROR]
+          description: Current analysis status
+          example: DONE
+        plagiarismDetected:
+          type: boolean
+          description: True if similarityPercent > 50%
+          example: true
+        similarityPercent:
+          type: number
+          format: float
+          description: Similarity percentage (0-100)
+          minimum: 0
+          maximum: 100
+          example: 78.5
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when report was created
+          example: '2025-12-11T12:30:00Z'
+        completedAt:
+          type: string
+          format: date-time
+          description: Timestamp when analysis completed (only for DONE status)
+          example: '2025-12-11T12:35:00Z'
+        errorMessage:
+          type: string
+          description: Error message (only for ERROR status)
+          example: Failed to extract text from document
+        matchedSubmissions:
+          type: array
+          description: List of submissions with high similarity
+          items:
+            $ref: '#/components/schemas/MatchedSubmission'
+
+    MatchedSubmission:
+      type: object
+      required: [submissionId, similarityPercent, matchedChunks]
+      properties:
+        submissionId:
+          type: string
+          description: ID of matched submission
+          example: sub-042
+        similarityPercent:
+          type: number
+          format: double
+          description: Similarity percentage with this submission
+          minimum: 0
+          maximum: 100
+          example: 78.5
+        matchedChunks:
+          type: integer
+          description: Number of chunks that matched
+          minimum: 0
+          example: 15
+
+    WorkReportItem:
+      type: object
+      required: [submissionId, status, plagiarismDetected, similarityPercent, createdAt]
+      properties:
+        submissionId:
+          type: string
+          example: sub-001
+        status:
+          type: string
+          enum: [QUEUED, PROCESSING, DONE, ERROR]
+          example: DONE
+        plagiarismDetected:
+          type: boolean
+          example: true
+        similarityPercent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 78.5
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-12-11T12:30:00Z'
+        completedAt:
+          type: string
+          format: date-time
+          example: '2025-12-11T12:35:00Z'
+
+    WorkReportsResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/WorkReportItem'
+
+    ErrorCode:
+      type: string
+      enum: [VALIDATION_ERROR, FILE_NOT_FOUND, REPORT_NOT_FOUND, WORK_NOT_FOUND, INTERNAL_ERROR, SERVICE_UNAVAILABLE]
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context
+
+security: []

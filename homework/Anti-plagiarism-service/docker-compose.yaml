@@ -1,0 +1,112 @@
+services:
+  swagger:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8088:8080"
+    environment:
+      - URL=/api-files/openapi.yaml
+    volumes:
+      - ./api-files/openapi.yaml:/usr/share/nginx/html/api-files/openapi.yaml:ro
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - FILE_STORING_HOST=file-storing
+      - FILE_STORING_PORT=8082
+      - FILE_ANALYSIS_HOST=file-analisys
+      - FILE_ANALYSIS_PORT=8081
+      - HTTP_ADDR=:8080
+      - PG_GATEWAY_DB=gateway
+      - PG_GATEWAY_USER=gateway
+      - PG_GATEWAY_PASSWORD=gateway_pass
+      - PG_GATEWAY_HOST=postgres-gateway
+      - PG_GATEWAY_PORT=5432
+    depends_on:
+      - postgres-gateway
+
+  postgres-gateway:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gateway
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway_pass
+    volumes:
+      - gateway_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway -d gateway"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    expose:
+      - "5432"
+
+  postgres-analysis:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${PG_ANALYSIS_DB:-analysis}
+      POSTGRES_USER: ${PG_ANALYSIS_USER:-analysis}
+      POSTGRES_PASSWORD: ${PG_ANALYSIS_PASSWORD:-analysis_pass}
+    volumes:
+      - analysis_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_ANALYSIS_USER:-analysis} -d ${PG_ANALYSIS_DB:-analysis}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    expose:
+      - "5432"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-local-dev-key}
+    expose:
+      - "6333"
+      - "6334"
+
+  file-analisys:
+    build: ./file-analisys
+    environment:
+      - FILE_STORING_BASE_URL=http://file-storing:8082/api/v1
+      - EMBEDDING_BASE_URL=http://embedding-service:8083/api/v1
+      - PG_ANALYSIS_DB=${PG_ANALYSIS_DB:-analysis}
+      - PG_ANALYSIS_USER=${PG_ANALYSIS_USER:-analysis}
+      - PG_ANALYSIS_PASSWORD=${PG_ANALYSIS_PASSWORD:-analysis_pass}
+      - PG_ANALYSIS_HOST=postgres-analysis
+      - PG_ANALYSIS_PORT=5432
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_GRPC_PORT=6334
+      - QDRANT_COLLECTION=plagiarism_chunks_v1
+      - QDRANT_VECTOR_SIZE=256
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-local-dev-key}
+    depends_on:
+      - postgres-analysis
+      - qdrant
+    expose:
+      - "8081"
+
+  embedding-service:
+    build: ./embedding-service
+    env_file:
+      - ./embedding-service/internal/env-files/yandexCloud.env
+    expose:
+      - "8083"
+
+  file-storing:
+    build: ./file-storing
+    environment:
+      - HTTP_ADDR=:8082
+    env_file:
+      - ./file-storing/internal/env-files/s3.env
+    expose:
+      - "8082"
+
+volumes:
+  gateway_db_data:
+  analysis_db_data:
+  qdrant_storage:
